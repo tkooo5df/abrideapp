@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Abride</string>
+    <string name="title_activity_main">Abride</string>
+    <string name="package_name">com.abride.app</string>
+    <string name="custom_url_scheme">com.abride.app</string>
+    <string name="server_client_id">1078510951177-0daa3ejgcf40jjkhnqd1hgatl0cq4bf6.apps.googleusercontent.com</string>
+</resources>
