@@ -126,7 +126,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
               <!-- Booking Code -->
               <div style="margin-bottom: 20px;">
                 <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">رمز الحجز</div>
-                <div style="font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.receiptCode || \`ABR-\${data.bookingId}\`}</div>
+                <div style="font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.receiptCode || ('ABR-' + data.bookingId)}</div>
               </div>
 
               <!-- Amount -->
@@ -146,19 +146,19 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
               </div>
               
               <!-- BaridiMob Notice -->
-              ${data.paymentMethod === 'BaridiMob' ? \`
-              <div style="font-size: 12px; font-weight: 700; color: #15803d; text-align: center; margin-bottom: 16px; background: #dcfce7; padding: 12px; border-radius: 10px; line-height: 1.5; box-sizing: border-box;">
-                الرجاء إرسال المبلغ إلى الحساب البريدي (RIP):<br>
-                <span style="direction: ltr; display: inline-block; font-family: monospace; margin-top: 6px; font-size: 14px;">00799999004064855725</span>
-              </div>
-              \` : ''}
+              ${data.paymentMethod === 'BaridiMob' ? (
+              '<div style="font-size: 12px; font-weight: 700; color: #15803d; text-align: center; margin-bottom: 16px; background: #dcfce7; padding: 12px; border-radius: 10px; line-height: 1.5; box-sizing: border-box;">' +
+                'الرجاء إرسال المبلغ إلى الحساب البريدي (RIP):<br>' +
+                '<span style="direction: ltr; display: inline-block; font-family: monospace; margin-top: 6px; font-size: 14px;">00799999004064855725</span>' +
+              '</div>'
+              ) : ''}
 
             </div>
 
             <!-- Footer -->
             <div style="padding: 0 24px 24px 24px; display: flex; align-items: center; gap: 12px; box-sizing: border-box;">
               <div style="flex: none; width: 56px; height: 56px; border-radius: 10px; border: 1px solid #E1DACB; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
-                  ${qrCodeDataUrl ? \`<img src="\${qrCodeDataUrl}" alt="QR" style="width: 56px; height: 56px; display: block;" />\` : ''}
+                  ${qrCodeDataUrl ? ('<img src="' + qrCodeDataUrl + '" alt="QR" style="width: 56px; height: 56px; display: block;" />') : ''}
               </div>
               <p style="font-size: 11.5px; line-height: 1.6; color: #4B5A50; margin: 0;">
                 <b style="color: #16241D;">وصل موثّق إلكترونياً</b> عبر منصة أبريد. أي تعديل على بيانات الرابط يُبطل صلاحية هذا الوصل تلقائياً.
