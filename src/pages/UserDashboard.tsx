@@ -12,6 +12,14 @@ import { RatingSection } from '@/components/booking/RatingSection';
 import { RatingPassengerSection } from '@/components/booking/RatingPassengerSection';
 import { DriverRatingsDisplay } from '@/components/driver/DriverRatingsDisplay';
 import TripRouteModal from '@/components/map/TripRouteModal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { 
   MapPin,
   Calendar,
@@ -44,13 +52,18 @@ import {
   Database,
   SaveIcon,
   Filter,
-  Loader2
+  Loader2,
+  QrCode,
+  LayoutGrid,
+  Table as TableIcon,
+  ListFilter
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import UserManagement from '@/components/admin/UserManagement';
 import SystemSettings from '@/components/admin/SystemSettings';
 import BookingModal from '@/components/booking/BookingModal';
+import BookingReceiptModal from '@/components/booking/BookingReceiptModal';
 import CancellationWarning from '@/components/CancellationWarning';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
 import { supabase } from '@/integrations/supabase/client';
@@ -96,7 +109,7 @@ const UserDashboard = () => {
   // Use local user if using local database, otherwise use Supabase user
   const user = isLocal ? localUser : supabaseUser;
   // Data states
-  const [vehicles, setVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [trips, setTrips] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
@@ -165,6 +178,11 @@ const UserDashboard = () => {
   const [showTripForm, setShowTripForm] = useState(false);
   const [showTripRouteModal, setShowTripRouteModal] = useState(false);
   const [selectedTripForRoute, setSelectedTripForRoute] = useState<any>(null);
+  const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<any>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
+  const [bookingsViewMode, setBookingsViewMode] = useState<'crm' | 'cards'>('crm');
+  const [bookingSearchQuery, setBookingSearchQuery] = useState<string>('');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all');
   const [tripForm, setTripForm] = useState({
     fromWilayaId: '',
     toWilayaId: '',
@@ -173,6 +191,9 @@ const UserDashboard = () => {
     vehicleId: '',
     departureDate: '',
     departureTime: '',
+    returnDate: '',
+    returnTime: '',
+    isRoundTrip: false,
     pricePerSeat: '',
     totalSeats: '4',
     description: ''
@@ -478,32 +499,52 @@ const UserDashboard = () => {
     }
   }, [authProfile, user?.id]);
 
-  // Fetch driver's vehicles (if user is driver)
+  // Fetch driver's vehicles
   const fetchVehicles = async () => {
-    if (!user || userProfile?.role !== 'driver') return;
-    
+    if (!user) return;
     try {
-      const data = await BrowserDatabaseService.getVehiclesByDriver(user.id);
-      // Fix any vehicles that don't have is_active set
-      if (data && data.length > 0) {
-        for (const vehicle of data) {
-          if (vehicle.isActive === undefined || vehicle.isActive === null) {
-            try {
-              await BrowserDatabaseService.updateVehicle(vehicle.id, { is_active: true });
-            } catch (err) {
-            }
-          }
-        }
-        
-        // Re-fetch vehicles after fixing
-        const updatedData = await BrowserDatabaseService.getVehiclesByDriver(user.id);
-        setVehicles(updatedData || []);
-      } else {
+      if (isLocal) {
+        const data = await BrowserDatabaseService.getVehiclesByDriver(user.id);
         setVehicles(data || []);
+      } else {
+        const { data, error } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('driver_id', user.id);
+
+        if (!error && data && data.length > 0) {
+          setVehicles(data);
+        } else if (userProfile) {
+          const profileData: any = userProfile;
+          if (profileData.vehicle_brand || profileData.vehicleBrand) {
+            setVehicles([{
+              id: 'profile_vehicle',
+              driver_id: user.id,
+              brand: profileData.vehicle_brand || profileData.vehicleBrand || 'مركبة السائق',
+              model: profileData.vehicle_model || profileData.vehicleModel || '',
+              year: profileData.vehicle_year || profileData.vehicleYear || '',
+              color: profileData.vehicle_color || profileData.vehicleColor || '',
+              plate_number: profileData.vehicle_plate || profileData.vehiclePlate || '',
+              seats: profileData.vehicle_seats || profileData.vehicleSeats || 4,
+              category: profileData.vehicle_category || profileData.vehicleCategory || 'عادية',
+              isActive: true,
+              is_active: true
+            }]);
+          } else {
+            setVehicles([]);
+          }
+        } else {
+          setVehicles([]);
+        }
       }
     } catch (error) {
+      setVehicles([]);
     }
   };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, [user?.id, userProfile]);
 
   // Helper function to get today's date in Algeria timezone
   const getTodayInAlgeria = () => {
@@ -1083,7 +1124,6 @@ const UserDashboard = () => {
       const loadData = async () => {
         try {
           await Promise.all([
-        fetchVehicles(),
         fetchTrips(),
         fetchBookings(),
         fetchAllTripsForStats(),
@@ -1297,6 +1337,8 @@ const UserDashboard = () => {
         toLng: toCoords?.lng,
         departureDate: tripForm.departureDate,
         departureTime: tripForm.departureTime,
+        returnDate: tripForm.returnDate || undefined,
+        returnTime: tripForm.returnTime || undefined,
         pricePerSeat: pricePerSeat,
         totalSeats: totalSeats,
         description: tripForm.description,
@@ -1581,7 +1623,7 @@ const UserDashboard = () => {
         seats: "4"
       });
 
-      await fetchVehicles();
+      
     } catch (error) {
       toast({
         title: "خطأ في إضافة المركبة",
@@ -1611,7 +1653,7 @@ const UserDashboard = () => {
         description: "تم تحديث معلومات المركبة بنجاح",
       });
       
-      await fetchVehicles();
+      
       setShowVehicleEditForm(false);
       setEditingVehicleId(null);
     } catch (error) {
@@ -1635,7 +1677,7 @@ const UserDashboard = () => {
         description: "تم حذف المركبة بنجاح",
       });
       
-      await Promise.all([fetchVehicles(), fetchTrips()]); // Refresh both since vehicle deletion affects trips
+      await Promise.all([fetchTrips()]); // Refresh both since vehicle deletion affects trips
     } catch (error) {
       toast({
         title: "خطأ في حذف المركبة",
@@ -1672,7 +1714,7 @@ const UserDashboard = () => {
         description: isActive ? "تم إلغاء تفعيل المركبة بنجاح" : "تم تفعيل المركبة بنجاح",
       });
       
-      await fetchVehicles();
+      
     } catch (error: any) {
       // Provide more specific error messages
       let errorMessage = "حدث خطأ أثناء تغيير حالة المركبة. يرجى المحاولة مرة أخرى.";
@@ -1697,41 +1739,54 @@ const UserDashboard = () => {
       return;
     }
 
-    // Set confirming state immediately to disable button
+    // Set confirming state immediately
     setConfirmingBookingId(bookingId);
-    
+
+    // ⚡ OPTIMISTIC UI UPDATE: Update local state INSTANTLY (0ms delay)!
+    setBookings((prevBookings: any[]) =>
+      prevBookings.map((b: any) =>
+        b.id === bookingId || String(b.id) === String(bookingId)
+          ? { ...b, status: 'confirmed', receiptCode: b.receiptCode || `ABR-${bookingId}` }
+          : b
+      )
+    );
+
+    // Show immediate success toast to user
+    toast({
+      title: "✅ تم تأكيد الحجز",
+      description: "تم تأكيد الحجز وإرسال الوصل للراكب بنجاح",
+    });
+
     try {
-      // Show immediate feedback to user
-      toast({
-        title: "جاري تأكيد الحجز...",
-        description: "يرجى الانتظار",
-      });
-      const result = await BookingTrackingService.trackStatusChange(
+      // Find if there is a linked return booking
+      const linkedReturnBooking = bookings.find((b: any) => 
+        b.notes?.includes(`(مرجع الحجز: #${bookingId})`) && b.status === 'pending'
+      );
+
+      // Execute database update and notification in background (non-blocking)
+      BookingTrackingService.trackStatusChange(
         bookingId.toString(),
         BookingStatus.CONFIRMED,
         'driver',
         user!.id,
         'تم قبول الحجز من قبل السائق'
-      );
-      // Show success message immediately
-      toast({
-        title: "✅ تم تأكيد الحجز",
-        description: "تم تأكيد الحجز وإرسال إشعار للراكب بنجاح",
+      ).then(() => {
+        // If there is a return booking, confirm it silently
+        if (linkedReturnBooking) {
+          // Update it locally to optimistic state
+          setBookings((prev: any[]) => prev.map(b => b.id === linkedReturnBooking.id ? { ...b, status: 'confirmed' } : b));
+          // Update DB without triggering more notifications
+          import('@/integrations/database/browserServices').then(({ BrowserDatabaseService }) => {
+            BrowserDatabaseService.updateBooking(linkedReturnBooking.id, { status: 'confirmed' });
+          });
+        }
+        
+        // Refresh bookings and stats in background without freezing UI
+        fetchBookings();
+        fetchTrips();
+      }).catch((error) => {
+        console.error('Background confirmation sync error:', error);
       });
-      
-      // Update data in background (non-blocking) - refresh after a short delay to allow UI to update
-      setTimeout(() => {
-        Promise.all([
-          fetchBookings(), 
-          fetchTrips(), 
-          fetchAllTripsForStats(), 
-          fetchAllBookingsForStats(), 
-          fetchNotificationStats()
-        ]).then(() => {
-        }).catch((error) => {
-        });
-      }, 500); // Small delay to let UI update first
-      
     } catch (error: any) {
       toast({
         title: "خطأ",
@@ -1739,10 +1794,9 @@ const UserDashboard = () => {
         variant: "destructive"
       });
     } finally {
-      // Clear confirming state after a short delay to prevent rapid clicks
       setTimeout(() => {
         setConfirmingBookingId(null);
-      }, 1000);
+      }, 300);
     }
   };
 
@@ -1833,6 +1887,18 @@ const UserDashboard = () => {
         status: 'rejected',
         cancellation_reason: rejectionReason.trim()
       });
+      
+      // Find and silently reject linked return booking if it exists
+      const linkedReturnBooking = bookings.find((b: any) => 
+        b.notes?.includes(`(مرجع الحجز: #${bookingToReject})`) && b.status === 'pending'
+      );
+      if (linkedReturnBooking) {
+        await BrowserDatabaseService.updateBooking(linkedReturnBooking.id, {
+          status: 'rejected',
+          cancellation_reason: rejectionReason.trim()
+        });
+      }
+
       // Show success message immediately
       toast({
         title: "✅ تم رفض الحجز",
@@ -1884,6 +1950,17 @@ const UserDashboard = () => {
           user!.id,
           'تم إلغاء الحجز من قبل المستخدم'
         );
+
+        // Find and silently cancel linked return booking if it exists
+        const linkedReturnBooking = bookings.find((b: any) => 
+          b.notes?.includes(`(مرجع الحجز: #${bookingId})`) && b.status !== 'cancelled'
+        );
+        if (linkedReturnBooking) {
+          await BrowserDatabaseService.updateBooking(linkedReturnBooking.id, {
+            status: 'cancelled',
+            cancellation_reason: 'تم إلغاء حجز الذهاب'
+          });
+        }
         await Promise.all([fetchBookings(), fetchTrips(), fetchAllTripsForStats(), fetchAllBookingsForStats(), fetchNotificationStats()]);
         
         toast({
@@ -2817,6 +2894,38 @@ const UserDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleCreateTrip} className="space-y-4">
+                    {/* اختيار نوع الرحلة: ذهاب فقط أم ذهاب وإياب */}
+                    <div className="p-3 bg-muted/40 border border-border/80 rounded-2xl space-y-2">
+                      <label className="text-xs font-bold text-foreground block">
+                        نوع الرحلة المراد برمجتها <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTripForm(prev => ({ ...prev, isRoundTrip: false }))}
+                          className={`p-2.5 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 ${
+                            !tripForm.isRoundTrip && parseInt(tripForm.totalSeats || '4') <= 30
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'bg-card text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          <span>➡️ رحلة ذهاب فقط</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setTripForm(prev => ({ ...prev, isRoundTrip: true }))}
+                          className={`p-2.5 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 ${
+                            tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : 'bg-card text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          <span>🔄 رحلة ذهاب وإياب</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">من</label>
@@ -2909,40 +3018,14 @@ const UserDashboard = () => {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">المركبة</label>
                       {(() => {
-                        const activeVehicles = vehicles.filter((v: any) => v.isActive);
+                        const activeVehicles = vehicles.filter((v: any) => v.isActive !== false && v.is_active !== false);
                         if (activeVehicles.length === 0) {
                           return (
                             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                               <p className="text-sm text-yellow-800">
                                 لا توجد مركبات نشطة. يرجى إضافة مركبة أولاً أو تفعيل إحدى المركبات الموجودة.
                               </p>
-                              {vehicles.length > 0 && (
-                                <div className="mt-2 text-xs text-yellow-700">
-                                  <p>المركبات الموجودة:</p>
-                                  <ul className="list-disc list-inside">
-                                    {vehicles.map((v: any) => (
-                                      <li key={v.id}>
-                                        {v.make} {v.model} - {v.isActive ? 'نشط' : 'غير نشط'}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  <button 
-                                    type="button"
-                                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm underline"
-                                    onClick={() => {
-                                      // Activate all vehicles
-                                      vehicles.forEach((v: any) => {
-                                        if (!v.isActive) {
-                                          handleToggleVehicleStatus(v.id, v.isActive);
-                                        }
-                                      });
-                                    }}
-                                  >
-                                    تفعيل جميع المركبات
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                              </div>
                           );
                         } else {
                           return (
@@ -2955,7 +3038,7 @@ const UserDashboard = () => {
                               <option value="">اختر المركبة</option>
                               {activeVehicles.map((vehicle: any) => (
                                 <option key={vehicle.id} value={vehicle.id}>
-                                  {vehicle.make} {vehicle.model} ({vehicle.year}) - {vehicle.licensePlate}
+                                  {vehicle.make || vehicle.brand} {vehicle.model} ({vehicle.year}) - {vehicle.licensePlate || vehicle.license_plate}
                                 </option>
                               ))}
                             </select>
@@ -3003,7 +3086,10 @@ const UserDashboard = () => {
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">عدد المقاعد</label>
-                        <Select value={tripForm.totalSeats} onValueChange={(value) => setTripForm(prev => ({ ...prev, totalSeats: value }))}>
+                        <Select 
+                          value={tripForm.totalSeats} 
+                          onValueChange={(value) => setTripForm(prev => ({ ...prev, totalSeats: value }))}
+                        >
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="اختر عدد المقاعد" />
                           </SelectTrigger>
@@ -3011,15 +3097,61 @@ const UserDashboard = () => {
                             <SelectItem value="1">1 مقعد</SelectItem>
                             <SelectItem value="2">2 مقعد</SelectItem>
                             <SelectItem value="3">3 مقاعد</SelectItem>
-                            <SelectItem value="4">4 مقاعد</SelectItem>
+                            <SelectItem value="4">4 مقاعد (سيارة عادية)</SelectItem>
                             <SelectItem value="5">5 مقاعد</SelectItem>
                             <SelectItem value="6">6 مقاعد</SelectItem>
-                            <SelectItem value="7">7 مقاعد</SelectItem>
-                            <SelectItem value="8">8 مقاعد (نقل)</SelectItem>
+                            <SelectItem value="7">7 مقاعد (فان / سيارة كبيرة)</SelectItem>
+                            <SelectItem value="8">8 مقاعد</SelectItem>
+                            <SelectItem value="15">15 مقعد (ميني باص)</SelectItem>
+                            <SelectItem value="30">30 مقعد 🚌 (حافلة صغيرة)</SelectItem><SelectItem value="35">35 مقعد 🚌 (حافلة متوسطة)</SelectItem>
+                            <SelectItem value="40">40 مقعد 🚌 (حافلة متوسطة)</SelectItem>
+                            <SelectItem value="49">49 مقعد 🚌 (حافلة كبيرة)</SelectItem><SelectItem value="50">50 مقعد 🚌 (حافلة كبيرة جدًا)</SelectItem>
+                            <SelectItem value="60">60 مقعد 🚌 (حافلة سياحية)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
+
+                    {/* Round Trip / Bus Trip Return Date & Time */}
+                    {(tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30) && (
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
+                          <span className="text-xl">{parseInt(tripForm.totalSeats || '4') > 30 ? '🚌' : '🔄'}</span>
+                          <span>
+                            {parseInt(tripForm.totalSeats || '4') > 30 
+                              ? 'تم تفعيل برمجة رحلة حافلة (أكثر من 30 مقعد)' 
+                              : 'برمجة رحلة ذهاب وإياب (عودة)'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          سيتم تلقائياً إنشاء رحلتين متميزتين في قاعدة البيانات (رحلة الذهاب، ورحلة العودة بنفس تفاصيل المركبة).
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-foreground">تاريخ العودة (الإياب) <span className="text-red-500">*</span></label>
+                            <input
+                              type="date"
+                              value={tripForm.returnDate}
+                              onChange={(e) => setTripForm(prev => ({ ...prev, returnDate: e.target.value }))}
+                              className="w-full p-2 text-xs border rounded-xl"
+                              min={tripForm.departureDate || new Date().toISOString().split('T')[0]}
+                              required={tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-foreground">وقت العودة (الإياب) <span className="text-red-500">*</span></label>
+                            <input
+                              type="time"
+                              value={tripForm.returnTime}
+                              onChange={(e) => setTripForm(prev => ({ ...prev, returnTime: e.target.value }))}
+                              className="w-full p-2 text-xs border rounded-xl"
+                              required={tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="space-y-2">
                       <label className="text-sm font-medium">الوصف (اختياري)</label>
@@ -3489,16 +3621,32 @@ const UserDashboard = () => {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{formatAlgeriaDateTime(trip.departureDate)}</span>
+                          <Calendar className="h-4 w-4 text-primary" />
+                          <span className="font-bold">الذهاب: {formatAlgeriaDateTime(trip.departureDate)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <Clock className="h-4 w-4 text-primary" />
                           <span>{trip.departureTime}</span>
                         </div>
+
+                        {(trip.returnDate || trip.return_date) && (
+                          <>
+                            <div className="flex items-center gap-2 text-sm text-emerald-600 font-bold">
+                              <Calendar className="h-4 w-4" />
+                              <span>العودة: {formatAlgeriaDateTime(trip.returnDate || trip.return_date)}</span>
+                            </div>
+                            {(trip.returnTime || trip.return_time) && (
+                              <div className="flex items-center gap-2 text-sm text-emerald-600">
+                                <Clock className="h-4 w-4" />
+                                <span>{trip.returnTime || trip.return_time}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+
                         <div className="flex items-center gap-2 text-sm">
                           <Car className="h-4 w-4 text-muted-foreground" />
-                          <span>{trip.vehicle?.make} {trip.vehicle?.model}</span>
+                          <span>{(trip.isBusTrip || trip.totalSeats > 30) ? '🚌' : ''} {trip.vehicle?.make} {trip.vehicle?.model}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <div className="flex items-center">
@@ -3784,265 +3932,566 @@ const UserDashboard = () => {
 
 
 
-          {/* Bookings Tab */}
+          {/* Bookings Tab - CRM Style List & Grid View */}
           <TabsContent value="bookings" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">حجوزاتي</h2>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-3">
+              <div>
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <span>إدارة الحجوزات | CRM View</span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {bookings.length} حجز
+                  </Badge>
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  عرض كافة الحجوزات والمعلومات التفصيلية، التصفية بالرمز، وطباعة وصل الـ RECU
+                </p>
+              </div>
+
+              {/* View Switcher Buttons */}
+              <div className="flex items-center gap-1.5 bg-muted/80 p-1 rounded-xl border border-border">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingsViewMode === 'crm' ? 'default' : 'ghost'}
+                  onClick={() => setBookingsViewMode('crm')}
+                  className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
+                >
+                  <TableIcon className="h-4 w-4" />
+                  <span>جدول CRM</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingsViewMode === 'cards' ? 'default' : 'ghost'}
+                  onClick={() => setBookingsViewMode('cards')}
+                  className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span>البطاقات</span>
+                </Button>
+              </div>
             </div>
 
-            <div className="grid gap-4">
-              {bookings.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2">لا توجد حجوزات</h3>
-                    <p className="text-muted-foreground mb-4">
-                      لم تقم بحجز أي رحلة بعد. ابدأ بالبحث عن رحلة مناسبة لك.
+            {/* CRM Search & Filter Control Bar */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 bg-card border rounded-2xl shadow-sm">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="ابحث بالرمز (ABR-XXX)، الاسم، رقم الهاتف، أو الولايات..."
+                  value={bookingSearchQuery}
+                  onChange={(e) => setBookingSearchQuery(e.target.value)}
+                  className="pr-9 h-9 text-xs sm:text-sm rounded-xl border-muted"
+                />
+              </div>
+
+              {/* Status Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingStatusFilter === 'all' ? 'default' : 'outline'}
+                  onClick={() => setBookingStatusFilter('all')}
+                  className="h-8 text-xs px-3 rounded-xl font-bold whitespace-nowrap"
+                >
+                  الكل ({bookings.length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingStatusFilter === 'pending' ? 'default' : 'outline'}
+                  onClick={() => setBookingStatusFilter('pending')}
+                  className="h-8 text-xs px-3 rounded-xl font-bold whitespace-nowrap text-amber-600 dark:text-amber-400 border-amber-500/30"
+                >
+                  بانتظار التأكيد ({bookings.filter((b: any) => b.status === 'pending').length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingStatusFilter === 'confirmed' ? 'default' : 'outline'}
+                  onClick={() => setBookingStatusFilter('confirmed')}
+                  className="h-8 text-xs px-3 rounded-xl font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                >
+                  مؤكدة ({bookings.filter((b: any) => b.status === 'confirmed').length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingStatusFilter === 'completed' ? 'default' : 'outline'}
+                  onClick={() => setBookingStatusFilter('completed')}
+                  className="h-8 text-xs px-3 rounded-xl font-bold whitespace-nowrap text-blue-600 dark:text-blue-400 border-blue-500/30"
+                >
+                  مكتملة ({bookings.filter((b: any) => b.status === 'completed').length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bookingStatusFilter === 'cancelled' ? 'default' : 'outline'}
+                  onClick={() => setBookingStatusFilter('cancelled')}
+                  className="h-8 text-xs px-3 rounded-xl font-bold whitespace-nowrap text-red-600 dark:text-red-400 border-red-500/30"
+                >
+                  ملغاة ({bookings.filter((b: any) => b.status === 'cancelled').length})
+                </Button>
+              </div>
+            </div>
+
+            {/* Filtered Bookings Logic */}
+            {(() => {
+              const filteredBookings = bookings.filter((booking: any) => {
+                // EXCLUDE automatic return bookings from the list so the driver doesn't see them twice
+                if (booking.notes?.includes('حجز العودة التلقائي') && userProfile?.role === 'driver') {
+                  return false;
+                }
+                
+                if (bookingStatusFilter !== 'all' && booking.status !== bookingStatusFilter) {
+                  return false;
+                }
+                if (bookingSearchQuery.trim()) {
+                  const q = bookingSearchQuery.toLowerCase().trim();
+                  const receiptCode = (booking.receiptCode || booking.receipt_code || `ABR-${booking.id}`).toLowerCase();
+                  const passengerName = (booking.passenger?.fullName || booking.passengerName || '').toLowerCase();
+                  const driverName = (booking.driver?.fullName || booking.driverName || '').toLowerCase();
+                  const pickupLoc = (booking.pickupLocation || '').toLowerCase();
+                  const destLoc = (booking.destinationLocation || '').toLowerCase();
+                  const phone = (booking.passenger?.phone || booking.driver?.phone || '').toLowerCase();
+                  const bookingIdStr = String(booking.id);
+
+                  return (
+                    receiptCode.includes(q) ||
+                    passengerName.includes(q) ||
+                    driverName.includes(q) ||
+                    pickupLoc.includes(q) ||
+                    destLoc.includes(q) ||
+                    phone.includes(q) ||
+                    bookingIdStr.includes(q)
+                  );
+                }
+                return true;
+              });
+
+              if (filteredBookings.length === 0) {
+                return (
+                  <Card className="border border-dashed p-8 text-center rounded-2xl">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                    <h3 className="text-lg font-bold">لا توجد نتائج مطابقة</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {bookingSearchQuery || bookingStatusFilter !== 'all'
+                        ? 'جرّب تغيير عبارة البحث أو فلتر حالة الحجز'
+                        : 'لم تقم بحجز أي رحلة بعد.'}
                     </p>
-                    <Button>
-                      <Search className="h-4 w-4 mr-2" />
-                      البحث عن رحلة
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                bookings.map((booking: any) => (
-                  <Card key={booking.id} className="hover:shadow-elegant transition-all">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant={getStatusBadge(booking.status).variant}>
-                              {getStatusBadge(booking.status).label}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">#{booking.id}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-lg font-medium mb-2">
-                            <MapPin className="h-4 w-4 text-primary" />
-                            <div className="flex flex-col gap-0.5">
-                              <span>
-                                {booking.pickupLocation}
-                                {/* Show ksar if trip is from Ghardaia (47) and ksar exists */}
-                                {(() => {
-                                  // Get fromWilayaId from trip or booking
-                                  const fromWilayaId = booking.trip?.fromWilayaId;
-                                  // Get fromKsar from booking (stored in booking) or trip (fallback)
-                                  const fromKsar = booking.fromKsar || (booking.trip as any)?.fromKsar;
-                                  // Display ksar if from Ghardaia and ksar exists
-                                  if (fromWilayaId === 47 && fromKsar) {
-                                    return (
-                                      <span className="text-xs text-primary font-medium mr-1"> - {fromKsar}</span>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                                {booking.pickupPoint && (
-                                  <span className="text-sm text-muted-foreground"> - {booking.pickupPoint}</span>
-                                )}
-                              </span>
-                            </div>
-                            <span className="text-muted-foreground">←</span>
-                            <div className="flex flex-col gap-0.5">
-                              <span>
-                                {booking.destinationLocation}
-                                {booking.destinationPoint && (
-                                  <span className="text-sm text-muted-foreground"> - {booking.destinationPoint}</span>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            <User className="h-4 w-4" />
-                            {userProfile?.role === 'driver' && booking.passenger?.id ? (
-                              <Link 
-                                to={`/profile?userId=${booking.passenger.id}`}
-                                className="text-primary hover:underline cursor-pointer"
-                              >
-                                الراكب: {booking.passenger?.fullName}
-                              </Link>
-                            ) : userProfile?.role === 'passenger' && booking.driver?.id ? (
-                              <Link 
-                                to={`/profile?userId=${booking.driver.id}`}
-                                className="text-primary hover:underline cursor-pointer"
-                              >
-                                السائق: {booking.driver?.fullName}
-                              </Link>
-                            ) : (
-                              <span>
-                                {userProfile?.role === 'driver' 
-                                  ? `الراكب: ${booking.passenger?.fullName}` 
-                                  : `السائق: ${booking.driver?.fullName}`}
-                              </span>
-                            )}
-                            <Phone className="h-4 w-4" />
-                            <span>
-                              {userProfile?.role === 'driver' 
-                                ? booking.passenger?.phone 
-                                : booking.driver?.phone}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-primary">{booking.totalAmount} دج</div>
-                          <div className="text-sm text-muted-foreground">
-                            {booking.seatsBooked} مقعد
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {booking.paymentMethod === 'cod' ? 'نقداً' : 'بريدي موب'}
-                          </div>
-                        </div>
+                  </Card>
+                );
+              }
+
+              {/* View Mode 1: High Density CRM Table View */}
+              if (bookingsViewMode === 'crm') {
+                return (
+                  <Card className="border border-border/80 shadow-md rounded-2xl overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader className="bg-muted/50 border-b">
+                            <TableRow>
+                              <TableHead className="text-right font-bold text-foreground py-3.5">رمز الوصل / المعرف</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">الراكب</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">السائق</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">خط الرحلة</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">الموعد والتاريخ</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">المبلغ والمقاعد</TableHead>
+                              <TableHead className="text-right font-bold text-foreground">الحالة</TableHead>
+                              <TableHead className="text-center font-bold text-foreground">إجراءات CRM</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredBookings.map((booking: any) => {
+                              const receiptCode = booking.receiptCode || booking.receipt_code || `ABR-${booking.id}`;
+                              const statusInfo = getStatusBadge(booking.status);
+
+                              return (
+                                <TableRow key={booking.id} className="hover:bg-muted/40 transition-colors">
+                                  {/* Code / ID */}
+                                  <TableCell className="font-medium whitespace-nowrap py-3">
+                                    <div className="flex flex-col">
+                                      <span className="font-mono font-black text-primary text-sm">{receiptCode}</span>
+                                      <span className="text-[11px] text-muted-foreground">#{booking.id}</span>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Passenger */}
+                                  <TableCell className="whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="h-8 w-8 border border-primary/20">
+                                        <AvatarImage src={booking.passenger?.avatarUrl || booking.passenger?.avatar_url} />
+                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                          {booking.passenger?.fullName?.[0] || 'ر'}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-xs sm:text-sm text-foreground">
+                                          {booking.passenger?.fullName || booking.passengerName || 'راكب أبريد'}
+                                        </span>
+                                        {(booking.passenger?.phone || booking.passengerPhone) && (
+                                          <a 
+                                            href={`tel:${booking.passenger?.phone || booking.passengerPhone}`} 
+                                            className="text-[11px] text-muted-foreground hover:text-emerald-600 flex items-center gap-1 font-mono"
+                                          >
+                                            <Phone className="h-3 w-3 text-emerald-500" />
+                                            {booking.passenger?.phone || booking.passengerPhone}
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Driver */}
+                                  <TableCell className="whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="h-8 w-8 border border-secondary/30">
+                                        <AvatarImage src={booking.driver?.avatarUrl || booking.driver?.avatar_url} />
+                                        <AvatarFallback className="bg-secondary/10 text-secondary-foreground text-xs font-bold">
+                                          {booking.driver?.fullName?.[0] || 'س'}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-xs sm:text-sm text-foreground">
+                                          {booking.driver?.fullName || booking.driverName || 'سائق أبريد'}
+                                        </span>
+                                        {(booking.driver?.phone || booking.driverPhone) && (
+                                          <a 
+                                            href={`tel:${booking.driver?.phone || booking.driverPhone}`} 
+                                            className="text-[11px] text-muted-foreground hover:text-emerald-600 flex items-center gap-1 font-mono"
+                                          >
+                                            <Phone className="h-3 w-3 text-emerald-500" />
+                                            {booking.driver?.phone || booking.driverPhone}
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Route */}
+                                  <TableCell className="max-w-[220px]">
+                                    <div className="flex flex-col text-xs space-y-0.5">
+                                      <span className="font-bold text-foreground flex items-center gap-1">
+                                        <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                        <span>
+                                          {booking.pickupLocation}
+                                          {booking.fromKsar && <span className="text-primary mr-1">({booking.fromKsar})</span>}
+                                          {' ← '}
+                                          {booking.destinationLocation}
+                                        </span>
+                                      </span>
+                                      {(booking.pickupPoint || booking.destinationPoint) && (
+                                        <span className="text-[11px] text-muted-foreground truncate">
+                                          {booking.pickupPoint ? `الانطلاق: ${booking.pickupPoint}` : ''} {booking.destinationPoint ? `| الوصول: ${booking.destinationPoint}` : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Date & Time */}
+                                  <TableCell className="whitespace-nowrap">
+                                    <div className="flex flex-col text-xs space-y-0.5">
+                                      <span className="font-bold text-foreground flex items-center gap-1">
+                                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                                        الذهاب: {booking.trip?.departureDate || 'غير محدد'}
+                                      </span>
+                                      {(booking.returnDate || booking.return_date || booking.trip?.returnDate) && (
+                                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                          <Calendar className="h-3 w-3" />
+                                          العودة: {booking.returnDate || booking.return_date || booking.trip?.returnDate}
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {booking.pickupTime || booking.trip?.departureTime || 'غير محدد'}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Seats & Price */}
+                                  <TableCell className="whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                      <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                        {booking.totalAmount || 0} دج
+                                      </span>
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {booking.seatsBooked || 1} مقعد • {booking.paymentMethod === 'cod' ? 'نقداً' : 'بريدي موب'}
+                                      </span>
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 mt-0.5 w-fit font-bold">
+                                        {booking.tripType === 'round_trip' || booking.trip_type === 'round_trip' ? '🔄 ذهاب وإياب' : (booking.tripType === 'return' || booking.trip_type === 'return') ? '⬅️ عودة فقط' : '➡️ ذهاب فقط'}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Status */}
+                                  <TableCell className="whitespace-nowrap">
+                                    <Badge variant={statusInfo.variant} className="text-xs font-bold px-2.5 py-0.5">
+                                      {statusInfo.label}
+                                    </Badge>
+                                  </TableCell>
+
+                                  {/* CRM Actions */}
+                                  <TableCell className="text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {(booking.status === 'confirmed' || booking.status === 'completed') && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs"
+                                          onClick={() => {
+                                            setSelectedBookingForReceipt(booking);
+                                            setShowReceiptModal(true);
+                                          }}
+                                          title="عرض وطباعة الوصل"
+                                        >
+                                          <QrCode className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                                          الوصل
+                                        </Button>
+                                      )}
+
+                                      {userProfile?.role === 'driver' && booking.status === "pending" && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            className="h-8 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold"
+                                            onClick={() => handleConfirmBooking(booking.id)}
+                                            disabled={confirmingBookingId !== null}
+                                          >
+                                            {confirmingBookingId === booking.id ? (
+                                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                              <>
+                                                <Check className="h-3.5 w-3.5 mr-1" />
+                                                قبول
+                                              </>
+                                            )}
+                                          </Button>
+
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-red-600 border-red-300 hover:bg-red-50 text-xs font-bold"
+                                            onClick={() => handleRejectBooking(booking.id)}
+                                            disabled={rejectingBookingId !== null}
+                                          >
+                                            <X className="h-3.5 w-3.5 mr-1" />
+                                            رفض الحجز
+                                          </Button>
+                                        </>
+                                      )}
+
+                                      {userProfile?.role === 'driver' && booking.status === "confirmed" && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            className="h-8 bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold"
+                                            onClick={() => handleCompleteBooking(booking.id)}
+                                          >
+                                            <Check className="h-3.5 w-3.5 mr-1" />
+                                            إكمال
+                                          </Button>
+
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-red-600 border-red-300 hover:bg-red-50 text-xs font-bold"
+                                            onClick={() => handleRejectBooking(booking.id)}
+                                          >
+                                            <X className="h-3.5 w-3.5 mr-1" />
+                                            إلغاء الحجز
+                                          </Button>
+                                        </>
+                                      )}
+
+                                      {userProfile?.role === 'passenger' && (booking.status === "pending" || booking.status === "confirmed") && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-red-600 border-red-200 hover:bg-red-50 text-xs font-semibold"
+                                          onClick={() => handleCancelBooking(booking.id)}
+                                        >
+                                          <X className="h-3.5 w-3.5 mr-1" />
+                                          إلغاء
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{booking.trip?.departureDate}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{booking.pickupTime}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Car className="h-4 w-4 text-muted-foreground" />
-                          <span>{booking.trip?.vehicle?.make} {booking.trip?.vehicle?.model}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span>{booking.trip?.availableSeats}/{booking.trip?.totalSeats} مقاعد</span>
-                        </div>
-                      </div>
-
-                      {booking.notes && (
-                        <div className="mb-4 p-3 bg-muted rounded-lg">
-                          <p className="text-sm"><strong>ملاحظات:</strong> {booking.notes}</p>
-                        </div>
-                      )}
-
-                      {booking.specialRequests && (
-                        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm"><strong>طلبات خاصة:</strong> {booking.specialRequests}</p>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        {userProfile?.role === 'driver' && booking.status === "pending" && (
-                          <div className="flex flex-wrap gap-2 w-full">
-                            <Button 
-                              size="sm" 
-                              className="flex-1"
-                              onClick={() => handleConfirmBooking(booking.id)}
-                              disabled={confirmingBookingId !== null}
-                            >
-                              {confirmingBookingId === booking.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  <span className="hidden sm:inline">جاري التأكيد...</span>
-                                  <span className="sm:hidden">جاري...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  <span className="hidden sm:inline">قبول</span>
-                                </>
-                              )}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="flex-1"
-                              onClick={() => handleRejectBooking(booking.id)}
-                              disabled={rejectingBookingId !== null || confirmingBookingId !== null}
-                            >
-                              {rejectingBookingId === booking.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  <span className="hidden sm:inline">جاري الرفض...</span>
-                                  <span className="sm:hidden">جاري...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <X className="h-4 w-4 mr-2" />
-                                  <span className="hidden sm:inline">رفض</span>
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                        {userProfile?.role === 'driver' && booking.status === "confirmed" && (
-                          <Button 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleCompleteBooking(booking.id)}
-                          >
-                            <Check className="h-4 w-4 mr-2" />
-                            <span className="hidden sm:inline">إكمال الرحلة</span>
-                            <span className="sm:hidden">إكمال</span>
-                          </Button>
-                        )}
-                        {userProfile?.role === 'passenger' && (booking.status === "pending" || booking.status === "confirmed") && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleCancelBooking(booking.id)}
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            <span className="hidden sm:inline">إلغاء الحجز</span>
-                            <span className="sm:hidden">إلغاء</span>
-                          </Button>
-                        )}
-                        {userProfile?.role === 'passenger' && booking.status === "confirmed" && (
-                          <Button 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handlePassengerCompleteBooking(booking.id)}
-                          >
-                            <Check className="h-4 w-4 mr-2" />
-                            <span className="hidden sm:inline">إكمال الرحلة</span>
-                            <span className="sm:hidden">إكمال</span>
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          disabled
-                          title="قريباً: صفحة تفاصيل الحجز"
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          <span className="hidden sm:inline">تفاصيل</span>
-                          <span className="sm:hidden">تفاصيل</span>
-                        </Button>
-                      </div>
-
-                      {/* Rating section - shown only for completed trips */}
-                      {userProfile?.role === 'passenger' && booking.status === "completed" && (
-                        <div className="mt-4 pt-4 border-t">
-                          <RatingSection 
-                            bookingId={booking.id}
-                            driverId={booking.driverId}
-                            driverName={booking.driver?.fullName}
-                            existingRating={booking.passengerRating}
-                            existingComment={booking.passengerComment}
-                            onRatingSubmit={() => fetchBookings()}
-                          />
-                        </div>
-                      )}
-
-                      {/* Passenger Rating section - shown for drivers after trip completion */}
-                      {userProfile?.role === 'driver' && booking.status === "completed" && (
-                        <div className="mt-4 pt-4 border-t">
-                          <RatingPassengerSection 
-                            bookingId={booking.id}
-                            passengerId={booking.passengerId}
-                            passengerName={booking.passenger?.fullName}
-                            onRatingSubmit={() => fetchBookings()}
-                          />
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
-                ))
-              )}
-            </div>
+                );
+              }
+
+              {/* View Mode 2: Card Grid View */}
+              return (
+                <div className="grid gap-4">
+                  {filteredBookings.map((booking: any) => (
+                    <Card key={booking.id} className="hover:shadow-elegant transition-all">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant={getStatusBadge(booking.status).variant}>
+                                {getStatusBadge(booking.status).label}
+                              </Badge>
+                              <span className="text-xs font-mono font-bold text-primary">
+                                {booking.receiptCode || booking.receipt_code || `ABR-${booking.id}`}
+                              </span>
+                              <span className="text-xs text-muted-foreground">#{booking.id}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-lg font-medium mb-2">
+                              <MapPin className="h-4 w-4 text-primary" />
+                              <div className="flex flex-col gap-0.5">
+                                <span>
+                                  {booking.pickupLocation}
+                                  {booking.fromKsar && (
+                                    <span className="text-xs text-primary font-medium mr-1"> - {booking.fromKsar}</span>
+                                  )}
+                                  {booking.pickupPoint && (
+                                    <span className="text-sm text-muted-foreground"> - {booking.pickupPoint}</span>
+                                  )}
+                                </span>
+                              </div>
+                              <span className="text-muted-foreground">←</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span>
+                                  {booking.destinationLocation}
+                                  {booking.destinationPoint && (
+                                    <span className="text-sm text-muted-foreground"> - {booking.destinationPoint}</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                              <User className="h-4 w-4" />
+                              {userProfile?.role === 'driver' && booking.passenger?.id ? (
+                                <Link 
+                                  to={`/profile?userId=${booking.passenger.id}`}
+                                  className="text-primary hover:underline cursor-pointer font-bold"
+                                >
+                                  الراكب: {booking.passenger?.fullName}
+                                </Link>
+                              ) : userProfile?.role === 'passenger' && booking.driver?.id ? (
+                                <Link 
+                                  to={`/profile?userId=${booking.driver.id}`}
+                                  className="text-primary hover:underline cursor-pointer font-bold"
+                                >
+                                  السائق: {booking.driver?.fullName}
+                                </Link>
+                              ) : (
+                                <span>
+                                  {userProfile?.role === 'driver' 
+                                    ? `الراكب: ${booking.passenger?.fullName}` 
+                                    : `السائق: ${booking.driver?.fullName}`}
+                                </span>
+                              )}
+                              <Phone className="h-4 w-4 text-emerald-500" />
+                              <span>
+                                {userProfile?.role === 'driver' 
+                                  ? booking.passenger?.phone 
+                                  : booking.driver?.phone}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-primary">{booking.totalAmount} دج</div>
+                            <div className="text-sm text-muted-foreground">
+                              {booking.seatsBooked} مقعد
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {booking.paymentMethod === 'cod' ? 'نقداً' : 'بريدي موب'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span>{booking.trip?.departureDate}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>{booking.pickupTime}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Car className="h-4 w-4 text-muted-foreground" />
+                            <span>{booking.trip?.vehicle?.make} {booking.trip?.vehicle?.model}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span>{booking.trip?.availableSeats}/{booking.trip?.totalSeats} مقاعد</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {userProfile?.role === 'driver' && booking.status === "pending" && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                className="flex-1 bg-emerald-600 text-white font-bold"
+                                onClick={() => handleConfirmBooking(booking.id)}
+                                disabled={confirmingBookingId !== null}
+                              >
+                                {confirmingBookingId === booking.id ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 mr-2" />
+                                    قبول
+                                  </>
+                                )}
+                              </Button>
+
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="flex-1 text-red-600 border-red-300 hover:bg-red-50 font-bold"
+                                onClick={() => handleRejectBooking(booking.id)}
+                                disabled={rejectingBookingId !== null}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                رفض الحجز
+                              </Button>
+                            </>
+                          )}
+
+                          {userProfile?.role === 'driver' && booking.status === "confirmed" && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 font-bold"
+                              onClick={() => handleRejectBooking(booking.id)}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              إلغاء الحجز
+                            </Button>
+                          )}
+                          {(booking.status === 'confirmed' || booking.status === 'completed') && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="border-primary/40 text-primary hover:bg-primary/10 transition-all font-bold"
+                              onClick={() => {
+                                setSelectedBookingForReceipt(booking);
+                                setShowReceiptModal(true);
+                              }}
+                            >
+                              <QrCode className="h-4 w-4 mr-1.5 text-primary" />
+                              عرض الوصل (PDF / QR)
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
           </TabsContent>
 
 
@@ -4327,6 +4776,18 @@ const UserDashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Booking Receipt & QR Code Modal */}
+      {selectedBookingForReceipt && (
+        <BookingReceiptModal
+          isOpen={showReceiptModal}
+          onClose={() => {
+            setShowReceiptModal(false);
+            setSelectedBookingForReceipt(null);
+          }}
+          booking={selectedBookingForReceipt}
+        />
+      )}
     </div>
   );
 };

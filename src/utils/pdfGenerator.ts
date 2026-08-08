@@ -54,15 +54,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
 
       // Build the beautiful new ticket HTML template
       container.innerHTML = `
-        <div style="width: 440px; margin: 0 auto; background: #FBF8F2; padding: 40px; font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; box-sizing: border-box;">
-          
-          <!-- Brand Row -->
-          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 28px;">
-            <div style="width: 30px; height: 30px; border-radius: 9px; position: relative; background: linear-gradient(155deg, #0B6E4F, #063C2B); flex: none;">
-              <div style="position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border-radius: 5px; transform: rotate(45deg); border: 2px solid #F2A93B; border-left-color: transparent; border-bottom-color: transparent; box-sizing: border-box;"></div>
-            </div>
-            <div style="font-weight: 800; font-size: 19px; color: #111827; line-height: 1;"><span style="color: #0B6E4F;">أ</span>بريد</div>
-          </div>
+        <div style="width: 440px; margin: 0 auto; background: #FBF8F2; font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; box-sizing: border-box;">
 
           <!-- Valid Ticket Box -->
           <div style="background: white; border-radius: 26px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(22,36,29,0.04), 0 20px 40px -18px rgba(6,60,43,0.28); box-sizing: border-box;">
@@ -195,7 +187,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 5, // Max resolution
+            scale: 6, // Ultra High resolution
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -224,12 +216,11 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
           // Center the ticket horizontally and vertically
-          const yPos = pdfHeight < pdf.internal.pageSize.getHeight() ? 15 : 0;
-          
-          // Width of ticket in mm
-          const targetWidth = 120; // 120mm wide
+          // Width of ticket in mm (A4 is 210mm wide)
+          const targetWidth = 210; 
           const targetHeight = (canvas.height * targetWidth) / canvas.width;
-          const xPos = (pdfWidth - targetWidth) / 2;
+          const xPos = 0; // fill width edge-to-edge
+          const yPos = 0; // fill height edge-to-edge
 
           // Use 'NONE' for compression to prevent blurring
           pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'NONE');
