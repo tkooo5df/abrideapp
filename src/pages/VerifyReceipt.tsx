@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
-import { decodeId } from '@/utils/crypto';
+import { decodeId, encodeId } from '@/utils/crypto';
 import Header from '@/components/layout/Header';
+import QRCode from 'react-qr-code';
 
 // ============================================================
 // أنواع البيانات
@@ -242,15 +243,17 @@ function ValidTicket({ data }: { data: ReceiptData }) {
         {/* التذييل */}
         <div className="px-6 pb-6 flex items-center gap-3">
           <div
-            className="flex-none w-14 h-14 rounded-[10px] border border-[#E1DACB] print:hidden"
-            style={{
-              backgroundColor: '#F3EEE1',
-              backgroundImage:
-                'linear-gradient(90deg, #16241D 25%, transparent 25%), linear-gradient(#16241D 25%, transparent 25%)',
-              backgroundSize: '8px 8px',
-            }}
-            aria-hidden
-          />
+            className="flex-none w-14 h-14 rounded-[10px] border border-[#E1DACB] print:hidden bg-white flex items-center justify-center overflow-hidden p-1"
+          >
+            <QRCode
+              value={`https://abride.online/verify-receipt?code=${encodeId(data.bookingCode || `ABR-${data.bookingId}`)}&id=${encodeId(data.bookingId)}`}
+              size={48}
+              bgColor="#ffffff"
+              fgColor="#16241D"
+              level="M"
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
           <p className="text-[11.5px] leading-[1.6] text-[#4B5A50]">
             <b className="text-[#16241D]">وصل موثّق إلكترونياً</b> عبر منصة أبريد. أي تعديل على بيانات الرابط يُبطل
             صلاحية هذا الوصل تلقائياً.
