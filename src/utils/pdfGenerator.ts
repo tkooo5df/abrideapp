@@ -193,7 +193,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 6, // Ultra High resolution
+            scale: 3, // High resolution but within payload limits
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -208,8 +208,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           });
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
-          // Use PNG for high quality, lossless text rendering
-          const imgData = canvas.toDataURL('image/png');
+          // Use JPEG for smaller file size so edge function payload doesn't exceed 2MB
+          const imgData = canvas.toDataURL('image/jpeg', 0.85);
           
           // Use standard A4
           const pdf = new jsPDF({
@@ -228,8 +228,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const xPos = 0; // fill width edge-to-edge
           const yPos = 0; // fill height edge-to-edge
 
-          // Use 'NONE' for compression to prevent blurring
-          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'NONE');
+          // Use 'FAST' compression to prevent huge files
+          pdf.addImage(imgData, 'JPEG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];

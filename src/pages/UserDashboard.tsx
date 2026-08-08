@@ -695,9 +695,7 @@ const UserDashboard = () => {
     try {
       // Use the same function as Profile.tsx to ensure consistency
       const data = await BrowserDatabaseService.getBookingsByDriver(user.id);
-      // Filter out automatic return bookings so they aren't double-counted in stats
-      const filteredData = (data || []).filter((b: any) => !b.notes?.includes('حجز العودة التلقائي'));
-      setAllBookings(filteredData);
+      setAllBookings(data || []);
     } catch (error) {
     }
   };

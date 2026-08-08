@@ -69,7 +69,6 @@ const BookingForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isSubmittingRef = useRef(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -111,9 +110,6 @@ const BookingForm = () => {
       return;
     }
 
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
-    
     setLoading(true);
 
     try {
@@ -154,7 +150,6 @@ const BookingForm = () => {
       }, 2000);
     } catch (error: any) {
       setError("حدث خطأ غير متوقع: " + error.message);
-      isSubmittingRef.current = false;
     } finally {
       setLoading(false);
     }
