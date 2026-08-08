@@ -1,48 +1,52 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  ShieldCheck, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  User, 
-  Car, 
-  Phone, 
-  ArrowRight,
-  Printer,
-  QrCode,
-  Loader2
-} from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
-import QRCode from 'qrcode';
 import { decodeId } from '@/utils/crypto';
 import Header from '@/components/layout/Header';
 
-export const VerifyReceipt: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [booking, setBooking] = useState<any>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [errorMsg, setErrorMsg] = useState<string>('');
+// ============================================================
+// أنواع البيانات
+// ============================================================
+type ReceiptData = {
+  fromCity: string;
+  toCity: string;
+  date: string;
+  time: string;
+  passengerName: string;
+  seatNumber: string;
+  bookingCode: string;
+  amount: string;
+  verifiedAt: string;
+};
 
-  const searchParams = new URLSearchParams(location.search);
-  const codeParam = decodeId(searchParams.get('code') || searchParams.get('receipt') || '');
-  const idParam = decodeId(searchParams.get('id') || searchParams.get('bookingId') || '');
+type VerifyState =
+  | { status: 'loading' }
+  | { status: 'valid'; data: ReceiptData }
+  | { status: 'invalid' };
+
+// ============================================================
+// المكوّن الرئيسي
+// ============================================================
+export default function VerifyReceipt() {
+  const location = useLocation();
+  const [state, setState] = useState<VerifyState>({ status: 'loading' });
 
   useEffect(() => {
-    fetchBooking();
-  }, [codeParam, idParam]);
+    const searchParams = new URLSearchParams(location.search);
+    const codeParam = decodeId(searchParams.get('code') || searchParams.get('receipt') || '');
+    const idParam = decodeId(searchParams.get('id') || searchParams.get('bookingId') || '');
 
-  const fetchBooking = async () => {
-    setLoading(true);
-    setErrorMsg('');
+    if (!codeParam && !idParam) {
+      setState({ status: 'invalid' });
+      return;
+    }
+
+    fetchBookingData(codeParam, idParam);
+  }, [location.search]);
+
+  const fetchBookingData = async (codeParam: string, idParam: string) => {
+    setState({ status: 'loading' });
 
     try {
       let foundBooking: any = null;
@@ -90,489 +94,277 @@ export const VerifyReceipt: React.FC = () => {
       }
 
       if (!foundBooking) {
-        setErrorMsg('لم يتم العثور على الوصل المطلوب في قاعدة البيانات. قد يكون الرمز غير صحيح.');
-        setLoading(false);
+        setState({ status: 'invalid' });
         return;
       }
 
-      // Fetch driver and passenger details for full display
-      const [driver, passenger, trip] = await Promise.all([
-        foundBooking.driver_id ? BrowserDatabaseService.getProfile(foundBooking.driver_id) : null,
+      // Fetch passenger and trip details for full display
+      const [passenger, trip] = await Promise.all([
         foundBooking.passenger_id ? BrowserDatabaseService.getProfile(foundBooking.passenger_id) : null,
         foundBooking.trip_id ? supabase.from('trips').select('*').eq('id', foundBooking.trip_id).maybeSingle() : null
       ]);
 
       const tripData = trip?.data;
-      let vehicleData = null;
-      if (tripData?.vehicle_id) {
-        const { data: v } = await supabase.from('vehicles').select('*').eq('id', tripData.vehicle_id).maybeSingle();
-        vehicleData = v;
-      }
-
-      const fullBooking = {
-        ...foundBooking,
-        receiptCode: foundBooking.receipt_code || `ABR-${foundBooking.id}`,
-        driver: driver,
-        passenger: passenger,
-        trip: {
-          ...tripData,
-          fromWilayaName: tripData ? (tripData.from_wilaya_name || `ولاية ${tripData.from_wilaya_id}`) : foundBooking.pickup_location,
-          toWilayaName: tripData ? (tripData.to_wilaya_name || `ولاية ${tripData.to_wilaya_id}`) : foundBooking.destination_location,
-          departureDate: tripData?.departure_date,
-          departureTime: tripData?.departure_time,
-          vehicle: vehicleData ? {
-            make: vehicleData.make,
-            model: vehicleData.model,
-            licensePlate: vehicleData.license_plate
-          } : (driver?.vehicleBrand ? {
-            make: driver.vehicleBrand,
-            model: driver.vehicleModel,
-            licensePlate: driver.vehiclePlate
-          } : null)
-        }
+      
+      const receiptData: ReceiptData = {
+        fromCity: foundBooking.pickup_location || tripData?.from_wilaya_name || 'الانطلاق',
+        toCity: foundBooking.destination_location || tripData?.to_wilaya_name || 'الوصول',
+        date: tripData?.departure_date || foundBooking.created_at?.split('T')[0] || '---',
+        time: foundBooking.pickup_time || tripData?.departure_time || '---',
+        passengerName: passenger?.fullName || passenger?.first_name || 'راكب أبريد',
+        seatNumber: String(foundBooking.seats_booked || foundBooking.seatsBooked || '1'),
+        bookingCode: foundBooking.receipt_code || `ABR-${foundBooking.id}`,
+        amount: String(foundBooking.total_amount || foundBooking.totalAmount || '0'),
+        verifiedAt: new Date().toLocaleString('ar-DZ')
       };
 
-      setBooking(fullBooking);
+      setState({ status: 'valid', data: receiptData });
 
-      // Generate QR Code URL for official verification link on abride.online
-      const officialVerifyUrl = `https://abride.online/verify-receipt?code=${fullBooking.receiptCode}&id=${fullBooking.id}`;
-      QRCode.toDataURL(officialVerifyUrl, { width: 180, margin: 2, color: { dark: '#047857', light: '#ffffff' } })
-        .then(url => setQrCodeUrl(url))
-        .catch(() => {});
-
-    } catch (err: any) {
-      setErrorMsg('حدث خطأ أثناء التحقق من الوصل: ' + (err.message || 'خطأ غير معروف'));
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Error verifying receipt:', err);
+      setState({ status: 'invalid' });
     }
-  };
-
-  // Dedicated Print Popup Window function (Prevents full page screenshot printing)
-  const handlePrintReceipt = () => {
-    if (!booking) return;
-
-    const receiptCode = booking.receiptCode || `ABR-${booking.id}`;
-    const bookingId = booking.id;
-    const verifyUrl = `https://abride.online/verify-receipt?code=${receiptCode}&id=${bookingId}`;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      window.print();
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-        <head>
-          <title>وصل حجز - ${receiptCode}</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-          <style>
-            * { box-sizing: border-box; }
-            body {
-              font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              padding: 24px;
-              direction: rtl;
-              background-color: #f8fafc;
-              color: #111827;
-              margin: 0;
-            }
-            .receipt-box {
-              max-width: 580px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              border-radius: 20px;
-              overflow: hidden;
-              border: 1px solid #e5e7eb;
-              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            }
-            .header-block {
-              background-color: #047857;
-              padding: 28px 24px 20px 24px;
-              text-align: center;
-            }
-            .logo-badge {
-              background: rgba(255, 255, 255, 0.18);
-              border: 1px solid rgba(255, 255, 255, 0.35);
-              border-radius: 50%;
-              width: 56px;
-              height: 56px;
-              margin: 0 auto 10px auto;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            .brand-wordmark {
-              color: #ffffff;
-              font-size: 24px;
-              font-weight: 800;
-              letter-spacing: 1px;
-            }
-            .brand-eyebrow {
-              color: #dcfce7;
-              font-size: 11px;
-              font-weight: 600;
-              letter-spacing: 3px;
-              text-transform: uppercase;
-              margin-top: 2px;
-            }
-            .route-strip {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 8px;
-              margin-top: 14px;
-              color: #ffffff;
-              font-size: 14px;
-            }
-            .dots { color: rgba(255,255,255,0.4); letter-spacing: 3px; font-size: 12px; }
-            .content-area {
-              padding: 24px;
-            }
-            .ticket-card {
-              background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
-              border: 1.5px solid #bbf7d0;
-              border-radius: 18px;
-              padding: 22px;
-              margin-bottom: 20px;
-            }
-            .perforation {
-              border-bottom: 2px dashed #86efac;
-              padding-bottom: 14px;
-              margin-bottom: 14px;
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-            }
-            .status-pill {
-              background-color: #dcfce7;
-              color: #15803d;
-              border-radius: 9999px;
-              font-size: 12px;
-              font-weight: 700;
-              padding: 4px 14px;
-            }
-            .receipt-code-label {
-              font-size: 11px;
-              font-weight: 600;
-              letter-spacing: 2px;
-              color: #047857;
-            }
-            .amount-climax {
-              text-align: center;
-              margin: 16px 0;
-            }
-            .amount-label {
-              font-size: 11px;
-              font-weight: 600;
-              letter-spacing: 2px;
-              color: #6b7280;
-              text-transform: uppercase;
-            }
-            .amount-value {
-              font-size: 38px;
-              font-weight: 800;
-              color: #065f46;
-              line-height: 1.1;
-            }
-            .amount-currency {
-              font-size: 20px;
-              font-weight: 600;
-              color: #047857;
-              margin-right: 6px;
-            }
-            .details-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 12px;
-              margin-top: 14px;
-              font-size: 13px;
-            }
-            .detail-item {
-              background: rgba(255, 255, 255, 0.7);
-              padding: 10px 14px;
-              border-radius: 10px;
-              border: 1px solid rgba(187, 247, 208, 0.6);
-            }
-            .detail-label { color: #6b7280; font-size: 11px; margin-bottom: 2px; }
-            .detail-val { font-weight: 700; color: #111827; }
-            .qr-section {
-              text-align: center;
-              padding-top: 16px;
-              border-top: 1px solid #e5e7eb;
-            }
-            .qr-section img {
-              width: 140px;
-              height: 140px;
-              border-radius: 12px;
-              padding: 6px;
-              border: 1px solid #e5e7eb;
-              background: #fff;
-            }
-            .footer {
-              border-top: 1px solid #e5e7eb;
-              padding: 18px;
-              text-align: center;
-              color: #9ca3af;
-              font-size: 12px;
-              background-color: #f8fafc;
-            }
-            @media print {
-              body { padding: 0; background: #fff; }
-              .receipt-box { box-shadow: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="receipt-box">
-            <div class="header-block" style="padding: 32px 24px 24px 24px;">
-              <img src="https://www.abride.online/logo.svg" alt="Abride" width="68" height="68" style="filter: brightness(0) invert(1); margin: 0 auto 10px auto; display: block;" />
-              <div class="brand-wordmark" style="font-size: 26px;">أبريد ABRIDE</div>
-              <div class="brand-eyebrow">ABRIDE PLATFORM • RECU SYSTEM</div>
-            </div>
-
-            <div class="content-area">
-              <div class="ticket-card">
-                <div class="perforation">
-                  <div class="status-pill">✓ وصل حجز مؤكد (RECU)</div>
-                  <div class="receipt-code-label">${receiptCode}</div>
-                </div>
-
-                <div class="amount-climax">
-                  <div class="amount-label">المبلغ الإجمالي</div>
-                  <div class="amount-value">
-                    ${booking.total_amount || booking.totalAmount || 0} <span class="amount-currency">دج</span>
-                  </div>
-                </div>
-
-                <div style="border-bottom: 2px dashed #86efac; margin: 14px 0;"></div>
-
-                <div class="details-grid">
-                  <div class="detail-item" style="grid-column: span 2;">
-                    <div class="detail-label">مسار الرحلة</div>
-                    <div class="detail-val" style="color: #047857;">
-                      من ${booking.pickup_location || booking.trip?.fromWilayaName || 'الانطلاق'} إلى ${booking.destination_location || booking.trip?.toWilayaName || 'الوصول'}
-                    </div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">الراكب</div>
-                    <div class="detail-val">${booking.passenger?.fullName || booking.passenger?.first_name || 'راكب أبريد'}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">السائق</div>
-                    <div class="detail-val">${booking.driver?.fullName || booking.driver?.first_name || 'سائق أبريد'}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">تاريخ ووقت الانطلاق</div>
-                    <div class="detail-val">${booking.trip?.departureDate || ''} ${booking.pickup_time || booking.trip?.departureTime || ''}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">المقاعد المجهزة</div>
-                    <div class="detail-val">${booking.seats_booked || booking.seatsBooked || 1} مقعد</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="qr-section">
-                ${qrCodeUrl ? `<img src="${qrCodeUrl}" alt="QR Code" />` : ''}
-                <div style="font-size: 13px; font-weight: 700; color: #047857; margin-top: 8px;">
-                  امسح الكود للتحقق المباشر عبر المنصة الرسمية
-                </div>
-                <div style="font-size: 11px; color: #6b7280; font-family: monospace; margin-top: 2px;">
-                  ${verifyUrl}
-                </div>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0 0 4px 0; color: #6b7280; font-weight: 600;">منصة أبريد - الرحلات والتنقل بين الولايات الجزائرية</p>
-              <p style="margin: 0;">جميع الحقوق محفوظة © ${new Date().getFullYear()} abride.online</p>
-            </div>
-          </div>
-
-          <script>
-            window.onload = function() {
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col dir-rtl font-sans" dir="rtl">
-      {/* Hide header during native print */}
+    <div className="min-h-screen flex flex-col font-sans" dir="rtl">
+      {/* Hide header during print */}
       <div className="print:hidden">
         <Header />
       </div>
 
-      <main className="flex-1 container mx-auto max-w-2xl px-4 py-8">
-        {loading ? (
-          <Card className="p-8 text-center border shadow-lg rounded-[20px]">
-            <Loader2 className="h-12 w-12 text-[#047857] animate-spin mx-auto mb-4" />
-            <h2 className="text-xl font-bold">جاري التحقق من صحة الوصل...</h2>
-            <p className="text-sm text-muted-foreground mt-2">يرجى الانتظار لحظات</p>
-          </Card>
-        ) : errorMsg || !booking ? (
-          <Card className="p-8 text-center border-red-200 bg-red-50/50 dark:bg-red-950/10 shadow-lg rounded-[20px]">
-            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">وصل غير صالح!</h2>
-            <p className="text-muted-foreground mt-2">{errorMsg || 'رمز الوصل غير مسجل في قاعدة البيانات'}</p>
-            <Button onClick={() => navigate('/')} className="mt-6 bg-[#047857] hover:bg-[#065f46]">
-              <ArrowRight className="h-4 w-4 ml-2" />
-              العودة للرئيسية
-            </Button>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            
-            {/* Top Verification Status Seal */}
-            <div className={`p-6 rounded-[20px] border text-center shadow-lg transition-all print:hidden ${
-              booking.status === 'confirmed' || booking.status === 'completed'
-                ? 'bg-[#f0fdf4] border-[#bbf7d0] text-[#065f46]'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200'
-            }`}>
-              <div className="flex justify-center mb-3">
-                <div className={`p-3 rounded-full ${
-                  booking.status === 'confirmed' || booking.status === 'completed'
-                    ? 'bg-[#047857] text-white'
-                    : 'bg-amber-500 text-white'
-                }`}>
-                  <ShieldCheck className="h-10 w-10" />
-                </div>
-              </div>
-              <h1 className="text-2xl font-extrabold">
-                {booking.status === 'confirmed' || booking.status === 'completed'
-                  ? '✅ وصل حجز رسمي ومؤكد'
-                  : '⚠️ وصل حجز بانتظار التأكيد'}
-              </h1>
-              <p className="text-sm mt-1 opacity-90">
-                منصة أبريد الرسمية تؤكد صحة هذا الوصل ومطابقته للبيانات في قاعدة البيانات.
-              </p>
-              <div className="inline-block mt-3 px-4 py-1 rounded-full bg-white border border-[#bbf7d0] font-mono font-bold text-sm text-[#047857] shadow-sm">
-                {booking.receiptCode}
-              </div>
-            </div>
+      <div
+        className="flex-1 flex items-start justify-center px-4 py-12 sm:py-16"
+        style={{
+          background:
+            'radial-gradient(1200px 600px at 15% -10%, rgba(11,110,79,0.08), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgba(242,169,59,0.10), transparent 55%), #FBF8F2',
+        }}
+      >
+        <div className="w-full max-w-[440px]">
+          <BrandRow />
 
-            {/* Official Brand Ticket Stub Display */}
-            <div className="bg-white border border-gray-200 shadow-xl rounded-[20px] overflow-hidden">
-              
-              {/* Brand Header */}
-              <div className="bg-[#047857] text-white p-7 text-center relative">
-                <img src="https://www.abride.online/logo.svg" alt="Abride Logo" className="w-16 h-16 mx-auto mb-2 filter brightness-0 invert" />
-                <div className="text-2xl font-extrabold text-white tracking-wide">
-                  أبريد ABRIDE
-                </div>
-                <div className="text-[11px] font-semibold tracking-[3px] text-emerald-100 uppercase mt-0.5">
-                  ABRIDE PLATFORM • RECU SYSTEM
-                </div>
-              </div>
-
-              {/* Ticket Content */}
-              <div className="p-6 space-y-5">
-                
-                <div className="bg-gradient-to-b from-[#f0fdf4] to-[#ecfdf5] border border-[#bbf7d0] rounded-[18px] p-5 space-y-4">
-                  
-                  {/* Header Row with Perforation */}
-                  <div className="border-b-2 border-dashed border-[#86efac] pb-3.5 flex items-center justify-between">
-                    <span className="bg-[#dcfce7] text-[#15803d] rounded-full px-3.5 py-1 text-xs font-bold flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      وصل حجز مؤكد (RECU)
-                    </span>
-                    <span className="font-mono text-xs font-semibold tracking-wider text-[#047857]">
-                      {booking.receiptCode}
-                    </span>
-                  </div>
-
-                  {/* Amount Climax */}
-                  <div className="text-center py-1">
-                    <div className="text-[11px] font-semibold tracking-widest text-gray-500 uppercase mb-1">المبلغ الإجمالي</div>
-                    <div className="text-4xl font-extrabold text-[#065f46] tracking-tight leading-none">
-                      {booking.total_amount || booking.totalAmount || 0} <span className="text-xl font-semibold text-[#047857] mr-1">دج</span>
-                    </div>
-                  </div>
-
-                  <div className="border-b-2 border-dashed border-[#86efac]"></div>
-
-                  {/* Trip Details Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                    <div className="sm:col-span-2 bg-white/80 border border-[#bbf7d0]/60 p-3 rounded-xl">
-                      <span className="text-gray-500 text-[11px] block mb-0.5">مسار الرحلة</span>
-                      <span className="font-bold text-[#047857] text-sm flex items-center gap-1.5">
-                        <MapPin className="h-4 w-4 text-[#047857]" />
-                        من {booking.pickup_location || booking.trip?.fromWilayaName} إلى {booking.destination_location || booking.trip?.toWilayaName}
-                      </span>
-                    </div>
-
-                    <div className="bg-white/80 border border-[#bbf7d0]/60 p-2.5 rounded-xl">
-                      <span className="text-gray-500 text-[11px] block mb-0.5">الراكب</span>
-                      <span className="font-bold text-gray-900 flex items-center gap-1">
-                        <User className="h-3.5 w-3.5 text-[#047857]" />
-                        {booking.passenger?.fullName || booking.passenger?.first_name || 'راكب أبريد'}
-                      </span>
-                    </div>
-
-                    <div className="bg-white/80 border border-[#bbf7d0]/60 p-2.5 rounded-xl">
-                      <span className="text-gray-500 text-[11px] block mb-0.5">السائق</span>
-                      <span className="font-bold text-gray-900 flex items-center gap-1">
-                        <User className="h-3.5 w-3.5 text-[#047857]" />
-                        {booking.driver?.fullName || booking.driver?.first_name || 'سائق أبريد'}
-                      </span>
-                    </div>
-
-                    <div className="bg-white/80 border border-[#bbf7d0]/60 p-2.5 rounded-xl">
-                      <span className="text-gray-500 text-[11px] block mb-0.5">تاريخ الانطلاق</span>
-                      <span className="font-bold text-gray-900 flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-[#047857]" />
-                        {booking.trip?.departureDate || booking.created_at?.split('T')[0]}
-                      </span>
-                    </div>
-
-                    <div className="bg-white/80 border border-[#bbf7d0]/60 p-2.5 rounded-xl">
-                      <span className="text-gray-500 text-[11px] block mb-0.5">المقاعد والنوع</span>
-                      <span className="font-bold text-gray-900">
-                        {booking.seats_booked || booking.seatsBooked || 1} مقعد ({booking.trip_type === 'round_trip' || booking.tripType === 'round_trip' ? 'ذهاب وإياب' : 'ذهاب فقط'})
-                      </span>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* QR Display */}
-                {qrCodeUrl && (
-                  <div className="flex flex-col items-center justify-center p-4 bg-gray-50 border border-slate-200 rounded-[14px] text-center">
-                    <img src={qrCodeUrl} alt="QR Verification" className="w-32 h-32 border rounded-xl bg-white p-1 shadow-sm" />
-                    <span className="text-xs font-bold text-[#047857] block mt-2">رمز التوثيق الإلكتروني التلقائي</span>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-2 print:hidden">
-                  <Button onClick={handlePrintReceipt} className="flex-1 bg-[#047857] text-white hover:bg-[#065f46] font-bold rounded-[10px]">
-                    <Printer className="h-4 w-4 mr-2" />
-                    طباعة / تحميل PDF
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate('/')} className="rounded-[10px]">
-                    الصفحة الرئيسية
-                  </Button>
-                </div>
-
-              </div>
-
-              <div className="border-t p-4 text-center text-xs text-gray-500 bg-gray-50">
-                منصة أبريد الرسمية للنقل والتنقل • abride.online
-              </div>
-
-            </div>
-          </div>
-        )}
-      </main>
+          {state.status === 'loading' && <LoadingTicket />}
+          {state.status === 'valid' && <ValidTicket data={state.data} />}
+          {state.status === 'invalid' && <InvalidTicket />}
+        </div>
+      </div>
     </div>
   );
-};
+}
 
-export default VerifyReceipt;
+// ============================================================
+// شعار أبريد
+// ============================================================
+function BrandRow() {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-7 print:hidden">
+      <div
+        className="w-[30px] h-[30px] rounded-[9px] relative flex-none"
+        style={{ background: 'linear-gradient(155deg, #0B6E4F, #063C2B)' }}
+      >
+        <div
+          className="absolute inset-2 rounded-[5px] rotate-45"
+          style={{ border: '2px solid #F2A93B', borderLeftColor: 'transparent', borderBottomColor: 'transparent' }}
+        />
+      </div>
+      <div className="font-extrabold text-[19px]">
+        <span className="text-[#0B6E4F]">أ</span>بريد
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// خط التقطيع (تأثير تذكرة الورق) — العنصر المميز في التصميم
+// ============================================================
+function Perforation() {
+  return (
+    <div className="relative h-px -mx-6 my-4">
+      <div className="absolute -top-[13px] -left-[13px] w-[26px] h-[26px] rounded-full bg-[#FBF8F2] print:bg-white" />
+      <div className="absolute -top-[13px] -right-[13px] w-[26px] h-[26px] rounded-full bg-[#FBF8F2] print:bg-white" />
+      <div className="absolute inset-x-6 top-0 border-t-2 border-dashed border-[#E1DACB]" />
+    </div>
+  );
+}
+
+// ============================================================
+// حالة النجاح
+// ============================================================
+function ValidTicket({ data }: { data: ReceiptData }) {
+  return (
+    <>
+      <div className="bg-white rounded-[26px] shadow-[0_1px_2px_rgba(22,36,29,0.04),0_20px_40px_-18px_rgba(6,60,43,0.28)] print:shadow-none print:border print:border-gray-200">
+        {/* الرأس */}
+        <div
+          className="relative overflow-hidden rounded-t-[26px] px-6 pt-6 pb-10 text-white print:!bg-[#0B6E4F]"
+          style={{ background: 'linear-gradient(155deg, #0B6E4F 0%, #063C2B 100%)' }}
+        >
+          <div className="absolute -left-10 -top-16 w-[220px] h-[220px] rounded-full bg-white/5" />
+          <div
+            className="absolute top-[22px] left-[22px] flex items-center gap-1.5 rounded-full border-[1.6px] px-3 py-[7px] text-[12.5px] font-bold -rotate-6"
+            style={{ borderColor: '#F2A93B', color: '#F2A93B', background: 'rgba(255,255,255,0.08)' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            تم التحقق
+          </div>
+          <p className="text-[12px] font-semibold text-white/70 mb-1">وصل حجز رحلة</p>
+          <p className="text-[20px] font-extrabold">رحلة بين المدن</p>
+        </div>
+
+        {/* شريط المسار */}
+        <div className="bg-white -mt-6 mx-[18px] rounded-[20px] px-[18px] pt-[18px] pb-4 shadow-[0_10px_24px_-14px_rgba(6,60,43,0.35)] flex items-center gap-3 print:shadow-none print:border print:border-gray-200">
+          <City name={data.fromCity} label="نقطة الانطلاق" />
+          <PathDots />
+          <City name={data.toCity} label="الوجهة" />
+        </div>
+
+        {/* التفاصيل */}
+        <div className="px-6 pt-5 pb-1.5">
+          <div className="grid grid-cols-2 gap-x-3.5 gap-y-4">
+            <Field label="التاريخ" value={data.date} />
+            <Field label="وقت الانطلاق" value={data.time} mono />
+            <Field label="اسم الراكب" value={data.passengerName} />
+            <Field label="رقم المقعد" value={data.seatNumber} mono />
+          </div>
+
+          <Perforation />
+
+          <Field label="رمز الحجز" value={data.bookingCode} mono large />
+
+          <div className="flex items-center justify-between bg-[#F3EEE1] print:bg-gray-100 rounded-[14px] px-4 py-[13px] my-5">
+            <span className="text-[13px] font-bold text-[#4B5A50]">المبلغ المدفوع</span>
+            <span className="text-[19px] font-extrabold text-[#0B6E4F] font-mono" dir="ltr">
+              {data.amount} <span className="text-[12px] font-bold">دج</span>
+            </span>
+          </div>
+        </div>
+
+        {/* التذييل */}
+        <div className="px-6 pb-6 flex items-center gap-3">
+          <div
+            className="flex-none w-14 h-14 rounded-[10px] border border-[#E1DACB] print:hidden"
+            style={{
+              backgroundColor: '#F3EEE1',
+              backgroundImage:
+                'linear-gradient(90deg, #16241D 25%, transparent 25%), linear-gradient(#16241D 25%, transparent 25%)',
+              backgroundSize: '8px 8px',
+            }}
+            aria-hidden
+          />
+          <p className="text-[11.5px] leading-[1.6] text-[#4B5A50]">
+            <b className="text-[#16241D]">وصل موثّق إلكترونياً</b> عبر منصة أبريد. أي تعديل على بيانات الرابط يُبطل
+            صلاحية هذا الوصل تلقائياً.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center gap-4 mt-5 print:hidden">
+        <button 
+          onClick={() => window.print()}
+          className="bg-white border border-gray-200 text-[#0B6E4F] font-bold text-sm px-6 py-2.5 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          طباعة التذكرة
+        </button>
+        <p className="text-center text-[12px] text-[#4B5A50] leading-[1.7]">تم التحقق في {data.verifiedAt}</p>
+      </div>
+    </>
+  );
+}
+
+function City({ name, label }: { name: string; label: string }) {
+  return (
+    <div className="flex-1 text-center">
+      <div className="text-[16px] font-extrabold">{name}</div>
+      <div className="text-[11px] font-semibold text-[#4B5A50] mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function PathDots() {
+  return (
+    <svg viewBox="0 0 64 20" className="flex-none w-16 h-5">
+      <line x1="4" y1="10" x2="60" y2="10" stroke="#D8D2C2" strokeWidth="2" strokeDasharray="4 4" />
+      <circle cx="32" cy="10" r="4" fill="#F2A93B" />
+    </svg>
+  );
+}
+
+function Field({ label, value, mono, large }: { label: string; value: string; mono?: boolean; large?: boolean }) {
+  return (
+    <div>
+      <div className="text-[11.5px] font-semibold text-[#4B5A50] mb-[3px]">{label}</div>
+      <div
+        className={`font-bold ${large ? 'text-[15px] tracking-wide' : 'text-[14.5px]'} ${mono ? 'font-mono' : ''}`}
+        dir={mono ? 'ltr' : undefined}
+        style={mono && !large ? { textAlign: 'left' } : undefined}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// حالة الرابط غير الصالح
+// ============================================================
+function InvalidTicket() {
+  return (
+    <>
+      <div className="bg-white rounded-[26px] shadow-[0_1px_2px_rgba(22,36,29,0.04),0_20px_40px_-18px_rgba(6,60,43,0.28)]">
+        <div
+          className="relative overflow-hidden rounded-t-[26px] px-6 pt-6 pb-10 text-white"
+          style={{ background: 'linear-gradient(155deg, #6B6157 0%, #3A3530 100%)' }}
+        >
+          <div
+            className="absolute top-[22px] left-[22px] flex items-center gap-1.5 rounded-full border-[1.6px] border-white/85 px-3 py-[7px] text-[12.5px] font-bold -rotate-6 bg-white/8"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            غير صالح
+          </div>
+          <p className="text-[12px] font-semibold text-white/70 mb-1">وصل حجز رحلة</p>
+          <p className="text-[20px] font-extrabold">تعذّر التحقق من الوصل</p>
+        </div>
+
+        <div className="bg-white -mt-6 mx-[18px] rounded-[20px] px-[18px] pt-[18px] pb-4 shadow-[0_10px_24px_-14px_rgba(6,60,43,0.35)] flex items-center gap-3 opacity-55 grayscale-[0.4]">
+          <City name="— — —" label="نقطة الانطلاق" />
+          <PathDots />
+          <City name="— — —" label="الوجهة" />
+        </div>
+
+        <div className="px-6 pt-5 pb-6">
+          <div className="bg-[#FBEEEC] border border-[#F2CFC8] rounded-[14px] px-4 pt-4 pb-3.5">
+            <div className="flex items-center gap-2 text-[#B23A2F] font-extrabold text-[14.5px] mb-1.5">
+              ⚠ هذا الرابط غير صالح
+            </div>
+            <p className="text-[13px] leading-[1.7] text-[#7A4038] m-0">
+              لم نتمكن من مطابقة هذا الوصل مع أي حجز مسجَّل لدينا. تأكد من استخدام الرابط الأصلي المُرسَل إليك دون
+              تعديل، أو تواصل مع الدعم لمراجعة حجزك.
+            </p>
+            <a
+              href="/"
+              className="inline-block mt-3 bg-[#B23A2F] text-white no-underline font-bold text-[13px] px-[18px] py-[9px] rounded-[10px]"
+            >
+              العودة للرئيسية
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-center text-[12px] text-[#4B5A50] mt-5 leading-[1.7]">
+        لأسباب أمنية، لا يتم عرض أي أرقام حجوزات حقيقية هنا.
+      </p>
+    </>
+  );
+}
+
+// ============================================================
+// حالة التحميل
+// ============================================================
+function LoadingTicket() {
+  return (
+    <div className="bg-white rounded-[26px] shadow-[0_1px_2px_rgba(22,36,29,0.04),0_20px_40px_-18px_rgba(6,60,43,0.28)] p-10 flex flex-col items-center gap-3">
+      <div className="w-8 h-8 rounded-full border-[3px] border-[#E1DACB] border-t-[#0B6E4F] animate-spin" />
+      <p className="text-[13.5px] font-semibold text-[#4B5A50]">جارٍ التحقق من الوصل...</p>
+    </div>
+  );
+}
