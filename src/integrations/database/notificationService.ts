@@ -2,6 +2,8 @@ import { BrowserDatabaseService } from './browserServices';
 import { getDisplayName } from '@/utils/displayName';
 import { TelegramService } from '@/integrations/telegram/telegramService';
 import { wilayas } from '@/data/wilayas';
+import { generateReceiptPdfBase64 } from '@/utils/pdfGenerator';
+import { encodeId } from '@/utils/crypto';
 
 // Comprehensive notification types
 export enum NotificationType {
@@ -145,6 +147,12 @@ export class NotificationService {
   // Create notification with enhanced features
   static async createNotification(data: NotificationData) {
     try {
+      // Remove attachments before saving to DB to avoid huge payloads
+      const dbMetadata = data.metadata ? { ...data.metadata } : undefined;
+      if (dbMetadata && dbMetadata.attachments) {
+        delete dbMetadata.attachments;
+      }
+
       const notification = await BrowserDatabaseService.createNotification({
         userId: data.userId,
         title: data.title,
@@ -159,7 +167,7 @@ export class NotificationService {
         imageUrl: data.imageUrl,
         scheduledFor: data.scheduledFor ? data.scheduledFor.toISOString() : undefined,
         expiresAt: data.expiresAt ? data.expiresAt.toISOString() : undefined,
-        metadata: data.metadata
+        metadata: dbMetadata
       });
 
       // Check if this is an RLS violation result
@@ -184,13 +192,11 @@ export class NotificationService {
         // Always send email if requireEmail flag is set (for security notifications like password change)
         if (requireEmail) {
           await this.sendEmailNotification(data);
+        } else if (data.type === NotificationType.BOOKING_CREATED) {
+          // EXPLICITLY skip email for BOOKING_CREATED (only send for BOOKING_CONFIRMED)
         } else if (!(isAdmin && isBookingNotification) && !skipEmail) {
-        // Don't send email to admin for booking/confirmation notifications or if skipEmail flag is set
+          // Don't send email to admin for booking/confirmation notifications or if skipEmail flag is set
           await this.sendEmailNotification(data);
-        } else {
-          if (skipEmail) {
-        } else {
-          }
         }
       } catch (emailError) {
         // Don't fail the notification creation if email fails
@@ -521,7 +527,8 @@ export class NotificationService {
             passengerPhone: passenger.phone,
             seatsBooked: bookingData.seatsBooked,
             totalAmount: bookingData.totalAmount,
-            audience: 'driver'
+            audience: 'driver',
+            skipEmail: true
           }
         });
         if (driverNotification) {
@@ -529,34 +536,6 @@ export class NotificationService {
         } else {
         }
       } catch (driverError) {
-      }
-
-      // 2. Notify passenger - Pending confirmation
-      try {
-        const passengerNotification = await this.sendSmartNotification({
-          userId: bookingData.passengerId,
-          title: '✅ تم الحجز بنجاح!',
-          message: `تم الحجز بنجاح. سيقوم السائق بمراجعة حجزك في لحظات.`,
-          type: NotificationType.BOOKING_PENDING,
-          category: NotificationCategory.BOOKING,
-          priority: NotificationPriority.MEDIUM,
-          relatedId: bookingData.bookingId.toString(),
-          relatedType: 'booking',
-          metadata: {
-            driverId: bookingData.driverId,
-            driverName,
-            driverPhone: driver.phone,
-            departureTime: trip?.departureTime || 'غير محدد',
-            pickupLocation: bookingData.pickupLocation,
-            status: 'pending',
-            audience: 'passenger'
-          }
-        });
-        if (passengerNotification) {
-          notifications.push(passengerNotification);
-        } else {
-        }
-      } catch (passengerError) {
       }
 
       // 3. Notify admins - System monitoring
@@ -594,6 +573,21 @@ export class NotificationService {
           }
         }
       } else {
+      }
+
+      try {
+        const { TelegramService } = await import('@/integrations/telegram/telegramService');
+        await TelegramService.notifyNewBooking({
+          bookingId: bookingData.bookingId,
+          passengerName: passengerName,
+          fromWilaya: bookingData.pickupLocation,
+          toWilaya: bookingData.destinationLocation,
+          amount: bookingData.totalAmount,
+          paymentMethod: bookingData.paymentMethod,
+          receiptUrl: (bookingData as any).receiptUrl
+        });
+      } catch (telegramErr) {
+        console.error('Error sending telegram booking notification:', telegramErr);
       }
 
       // 4. Log admin action (only if admins exist)
@@ -647,6 +641,8 @@ export class NotificationService {
         throw new Error(`Booking not found: ${bookingId}`);
       }
       
+      const trip = await BrowserDatabaseService.getTripById(booking.tripId);
+      
       if (!driver) {
         throw new Error(`Driver not found: ${driverId}`);
       }
@@ -664,11 +660,45 @@ export class NotificationService {
       if (!passenger) {
       } else if (!passenger.email) {
       } else {
+        // Generate PDF receipt attachment file
+        let pdfAttachment: any[] | undefined = undefined;
+        try {
+          let tripTypeTranslated = 'ذهاب فقط';
+          if (booking.tripType === 'round_trip' || booking.tripType === 'return' || booking.tripType === 'ذهاب وإياب') {
+            tripTypeTranslated = 'ذهاب وإياب';
+          }
+
+          const pdfBase64 = await generateReceiptPdfBase64({
+            receiptCode: `ABR-${bookingId}`,
+            bookingId: bookingId,
+            passengerName: passengerName,
+            driverName: driverName,
+            driverPhone: driver.phone,
+            fromLocation: booking.pickupLocation || trip?.fromWilayaName || 'غير محدد',
+            toLocation: booking.destinationLocation || trip?.toWilayaName || 'غير محدد',
+            departureDate: `${trip?.departureDate || ''} ${booking.pickupTime || trip?.departureTime || ''}`.trim(),
+            seatsBooked: booking.seatsBooked || 1,
+            totalAmount: booking.totalAmount || 0,
+            tripType: tripTypeTranslated,
+            paymentMethod: booking.paymentMethod === 'bpm' ? 'BaridiMob' : 'Cash on Delivery'
+          });
+
+          if (pdfBase64) {
+            pdfAttachment = [{
+              filename: `RECU_ABR-${bookingId}.pdf`,
+              content: pdfBase64,
+              contentType: 'application/pdf'
+            }];
+          }
+        } catch (pdfErr) {
+          console.warn('PDF generation error:', pdfErr);
+        }
+
         // Prepare notification data
         const passengerNotificationData: NotificationData = {
           userId: booking.passengerId!,
-          title: '🚗 تم قبول حجزك!',
-          message: `السائق ${driverName} قبل حجزك. يمكنك التواصل معه على ${driver.phone} لترتيب تفاصيل الرحلة.`,
+          title: '🚗 تم قبول حجزك! وصل الحجز (RECU) مرفق كملف PDF',
+          message: `مرحباً ${passengerName}،\n\nتم قبول حجزك بنجاح من طرف السائق ${driverName}. تجدون مرفقاً بهذا البريد الإلكتروني ملف وصل الحجز الرسمي (RECU_ABR-${bookingId}.pdf) بصيغة PDF بالمعلومات وتفاصيل السائق. يمكنك التواصل مع السائق على الهاتـف: ${driver.phone}.`,
           type: NotificationType.BOOKING_CONFIRMED,
           category: NotificationCategory.BOOKING,
           priority: NotificationPriority.HIGH,
@@ -678,7 +708,9 @@ export class NotificationService {
             driverName,
             driverPhone: driver.phone,
             status: 'confirmed',
-            bookingId: bookingId.toString()
+            bookingId: bookingId.toString(),
+            receiptUrl: `https://abride.online/verify-receipt?code=${encodeId('ABR-'+bookingId)}&id=${encodeId(bookingId)}`,
+            attachments: pdfAttachment
           }
         };
         
@@ -729,7 +761,8 @@ export class NotificationService {
             passengerId: booking.passengerId,
             passengerName,
             passengerPhone: passenger?.phone,
-            departureTime: booking.pickupTime
+            departureTime: booking.pickupTime,
+            skipEmail: true
           }
         });
         if (driverNotification) {
@@ -1493,8 +1526,7 @@ export class NotificationService {
         .update({ welcome_email_sent: true })
         .eq('id', userId)
         .eq('welcome_email_sent', false) // Only update if it's false
-        .select('welcome_email_sent')
-        .maybeSingle();
+        .select('welcome_email_sent');
 
       // If update failed, no rows were updated (meaning welcome_email_sent was already true), or error occurred
       // This means welcome email was already sent by another call
@@ -1502,8 +1534,8 @@ export class NotificationService {
         return null; // Already sent, skip
       }
 
-      // Verify the update was successful (welcome_email_sent should now be true)
-      if (!updateResult.welcome_email_sent) {
+      // Verify the update was successful (at least one row was updated)
+      if (updateResult.length === 0) {
         return null; // Update didn't work as expected, skip to be safe
       }
 
@@ -2331,6 +2363,7 @@ export class NotificationService {
           subject: data.title,
           html: htmlEmail,
           text: data.message, // Plain text version
+          attachments: data.metadata?.attachments || undefined,
         }),
       });
       if (!response.ok) {
@@ -2372,43 +2405,135 @@ export class NotificationService {
     }
   }
 
-  // Create HTML email template
+  // Create HTML email template following Abride Official Brand System
   private static createEmailTemplate(data: NotificationData): string {
-    const priorityColors = {
-      low: '#6b7280',
-      medium: '#3b82f6',
-      high: '#f59e0b',
-      urgent: '#ef4444',
-      critical: '#dc2626',
-    };
+    const isReceipt = data.type === NotificationType.BOOKING_CONFIRMED || (data.metadata && data.metadata.receiptUrl);
+    
+    const isTripNotification = (data.category === NotificationCategory.BOOKING || 
+                              data.type?.startsWith('booking_') || 
+                              data.type?.startsWith('trip_')) && !isReceipt;
+    
+    const bookingId = data.relatedId || (data.metadata && data.metadata.bookingId) || '';
+    const receiptCode = bookingId ? `ABR-${bookingId}` : 'ABRIDE';
+    const actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
 
-    const priorityColor = priorityColors[data.priority || 'medium'] || priorityColors.medium;
-    const actionButton = data.actionUrl 
-      ? `<a href="${data.actionUrl}" style="display: inline-block; padding: 12px 24px; background-color: ${priorityColor}; color: white; text-decoration: none; border-radius: 6px; margin-top: 20px;">عرض التفاصيل</a>`
-      : '';
+    const totalAmount = data.metadata?.totalAmount;
+    const paymentMethod = data.metadata?.paymentMethod || 'نقداً عند الانطلاق';
+    const driverName = data.metadata?.driverName;
+    const driverPhone = data.metadata?.driverPhone;
+    const fromLoc = data.metadata?.fromLocation || data.metadata?.pickupLocation;
+    const toLoc = data.metadata?.toLocation || data.metadata?.destinationLocation;
 
-    // Add payment details if available in metadata
-    let paymentDetails = '';
-    if (data.metadata && data.metadata.totalAmount) {
-      const totalAmount = data.metadata.totalAmount;
-      const paymentMethod = data.metadata.paymentMethod || 'نقداً';
-      
-      paymentDetails = `
-        <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 15px; margin: 15px 0;">
-          <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 18px;">💰 تفاصيل الدفعة</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 5px 0; color: #4b5563;">المبلغ الإجمالي:</td>
-              <td style="padding: 5px 0; font-weight: bold; font-size: 18px; color: #166534;">${totalAmount.toFixed(2)} دج</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0; color: #4b5563;">طريقة الدفع:</td>
-              <td style="padding: 5px 0; color: #6b7280;">${paymentMethod}</td>
-            </tr>
-          </table>
-        </div>
-      `;
-    }
+    // Route Strip Motif: ● ⋯⋯⋯⋯ 🚗 ⋯⋯⋯⋯ 📍 (RTL: Dep right, Arr left)
+    const routeStripHtml = isTripNotification ? `
+      <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 16px auto 0 auto;">
+        <tr>
+          <td style="color: #ffffff; font-size: 14px;">●</td>
+          <td style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 4px; padding: 0 8px;">⋯⋯⋯⋯</td>
+          <td style="font-size: 18px; padding: 0 4px;">🚗</td>
+          <td style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 4px; padding: 0 8px;">⋯⋯⋯⋯</td>
+          <td style="color: #ffffff; font-size: 16px;">📍</td>
+        </tr>
+      </table>
+    ` : '';
+
+    // Receipt Ticket Card HTML
+    const receiptCardHtml = (isReceipt || totalAmount) ? `
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+        <tr>
+          <td style="background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px solid #bbf7d0; border-radius: 18px; padding: 22px;">
+            
+            <!-- Header Row with Perforation -->
+            <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-bottom: 2px dashed #86efac; padding-bottom: 14px; margin-bottom: 14px;">
+              <tr>
+                <td align="right" style="direction: rtl;">
+                  <span style="background-color: #dcfce7; color: #15803d; border-radius: 9999px; font-size: 12px; font-weight: 700; padding: 4px 14px; display: inline-block;">
+                    ✓ وصل حجز مؤكد (RECU)
+                  </span>
+                </td>
+                <td align="left" style="font-family: 'Cairo', 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #047857;">
+                  ${receiptCode}
+                </td>
+              </tr>
+            </table>
+
+            <!-- Amount Climax -->
+            ${totalAmount ? `
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 12px 0;">
+                <tr>
+                  <td align="center">
+                    <div style="font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px;">المبلغ الإجمالي</div>
+                    <div style="font-size: 38px; font-weight: 800; color: #065f46; line-height: 1.1;">
+                      ${typeof totalAmount === 'number' ? totalAmount.toFixed(0) : totalAmount}
+                      <span style="font-size: 20px; font-weight: 600; color: #047857; margin-right: 6px;">دج</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Dashed Perforation 2 -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-bottom: 2px dashed #86efac; margin: 14px 0;">
+                <tr><td></td></tr>
+              </table>
+            ` : ''}
+
+            <!-- Details List -->
+            <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="direction: rtl; text-align: right; font-size: 14px;">
+              ${fromLoc && toLoc ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 35%;">مسار الرحلة:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${fromLoc} إلى ${toLoc}</td>
+                </tr>
+              ` : ''}
+              ${driverName ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">السائق المسؤول:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">${driverName} ${driverPhone ? `(${driverPhone})` : ''}</td>
+                </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 6px 0; color: #6b7280;">طريقة الدفع:</td>
+                <td style="padding: 6px 0; color: #111827; font-weight: 600;">${paymentMethod}</td>
+              </tr>
+              ${paymentMethod.includes('BaridiMob') || paymentMethod.includes('بريدي موب') ? `
+              <tr>
+                <td style="padding: 6px 0; color: #6b7280; vertical-align: top;">رقم الحساب (RIP):</td>
+                <td style="padding: 6px 0; color: #15803d; font-weight: 700; direction: ltr; text-align: right;">
+                  00799999004064855725<br>
+                  <span style="font-size: 11px; font-weight: 500; color: #6b7280; direction: rtl; display: block;">يرجى تحويل المبلغ الإجمالي إلى هذا الحساب</span>
+                </td>
+              </tr>
+              ` : ''}
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
+    // Info / Attachment Chip
+    const attachmentChipHtml = isReceipt ? `
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 18px 0;">
+        <tr>
+          <td style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 18px; color: #92400e; font-size: 13px; font-weight: 600; direction: rtl; text-align: right;">
+            📎 <strong style="color: #78350f;">ملاحظة هامة:</strong> تجدون مرفقاً بهذا البريد الإلكتروني ملف وصل الحجز الرسمي (RECU) بصيغة PDF جاهز للتحميل والطباعة.
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
+    // Action Button
+    const actionButtonHtml = actionUrl ? `
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 12px 0;">
+        <tr>
+          <td align="center">
+            <a href="${actionUrl}" target="_blank" style="background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px; padding: 14px 32px; display: inline-block; box-shadow: 0 4px 12px rgba(4, 120, 87, 0.25);">
+              عرض الوصل والـ QR Code الموثق ←
+            </a>
+          </td>
+        </tr>
+      </table>
+    ` : '';
 
     return `
 <!DOCTYPE html>
@@ -2417,26 +2542,79 @@ export class NotificationService {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${data.title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-  <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div style="border-left: 4px solid ${priorityColor}; padding-left: 20px; margin-bottom: 20px;">
-      <h1 style="color: ${priorityColor}; margin: 0; font-size: 24px;">${data.title}</h1>
-    </div>
-    
-    <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
-      <p style="margin: 0; font-size: 16px; color: #4b5563; line-height: 1.8;">${data.message}</p>
-    </div>
+<body style="font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #111827; margin: 0; padding: 0; background-color: #f8fafc; direction: rtl; text-align: right;">
+  
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 24px 12px;">
+    <tr>
+      <td align="center">
+        
+        <!-- Main Email Card Container -->
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+          
+          <!-- Header Block -->
+          <tr>
+            <td style="background-color: #047857; padding: 36px 24px 28px 24px; text-align: center;">
+              
+              <!-- Large Logo without Circle Badge -->
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 12px auto;">
+                <tr>
+                  <td align="center">
+                    <img src="https://www.abride.online/logo.svg" alt="Abride Logo" width="72" height="72" style="display: block; margin: 0 auto; filter: brightness(0) invert(1);" />
+                  </td>
+                </tr>
+              </table>
 
-    ${paymentDetails}
+              <!-- Brand Wordmark & Eyebrow -->
+              <div style="color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: 1px; margin-bottom: 2px;">أبريد ABRIDE</div>
+              <div style="color: #dcfce7; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;">ABRIDE PLATFORM • RECU SYSTEM</div>
 
-    ${actionButton}
+            </td>
+          </tr>
 
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center;">
-      <p style="margin: 0;">هذا إشعار تلقائي من منصة abride</p>
-      <p style="margin: 5px 0 0 0;">© ${new Date().getFullYear()} abride</p>
-    </div>
-  </div>
+          <!-- Body Content Area -->
+          <tr>
+            <td style="padding: 30px 24px;">
+              
+              <h1 style="color: #111827; font-size: 20px; font-weight: 700; margin-top: 0; margin-bottom: 14px; direction: rtl; text-align: right;">
+                ${data.title}
+              </h1>
+
+              <div style="background-color: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 20px; border-right: 4px solid #047857; direction: rtl; text-align: right;">
+                <p style="margin: 0; font-size: 15px; color: #4b5563; line-height: 1.8;">
+                  ${data.message}
+                </p>
+              </div>
+
+              <!-- Receipt Ticket Card -->
+              ${receiptCardHtml}
+
+              <!-- Attachment Info Chip -->
+              ${attachmentChipHtml}
+
+              <!-- Action Button -->
+              ${actionButtonHtml}
+
+            </td>
+          </tr>
+
+          <!-- Footer Block -->
+          <tr>
+            <td style="border-top: 1px solid #e5e7eb; padding: 24px; text-align: center; color: #9ca3af; font-size: 12px; background-color: #f8fafc;">
+              <p style="margin: 0 0 6px 0; color: #6b7280; font-weight: 600;">منصة أبريد - الرحلات والتنقل بين الولايات الجزائرية</p>
+              <p style="margin: 0; color: #9ca3af;">جميع الحقوق محفوظة © ${new Date().getFullYear()} abride.online</p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>
     `.trim();
