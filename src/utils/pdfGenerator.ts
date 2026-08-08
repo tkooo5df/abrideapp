@@ -178,14 +178,23 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 2, // High resolution
+            scale: 1.5, // Reduced from 2 to 1.5 for smaller file size while keeping readability
             useCORS: true,
             logging: false,
-            backgroundColor: '#FBF8F2' // match background
+            backgroundColor: '#FBF8F2', // match background
+            onclone: (clonedDoc) => {
+              // Ensure fonts are applied before capture
+              Array.from(clonedDoc.getElementsByTagName('div')).forEach(div => {
+                if(div.style.fontFamily.includes('Cairo')) {
+                  div.style.fontFamily = "'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+                }
+              });
+            }
           });
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
-          const imgData = canvas.toDataURL('image/png');
+          // Use JPEG compression (0.7 quality) to massively reduce file size!
+          const imgData = canvas.toDataURL('image/jpeg', 0.7);
           
           // Use standard A4
           const pdf = new jsPDF({
@@ -205,7 +214,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const targetHeight = (canvas.height * targetWidth) / canvas.width;
           const xPos = (pdfWidth - targetWidth) / 2;
 
-          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight);
+          pdf.addImage(imgData, 'JPEG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];
