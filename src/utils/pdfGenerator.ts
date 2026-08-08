@@ -30,10 +30,9 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       container.style.position = 'absolute';
       container.style.top = '-9999px';
       container.style.left = '-9999px';
-      container.style.width = '800px';
-      container.style.backgroundColor = '#f8fafc';
-      container.style.padding = '40px';
-      container.style.fontFamily = "'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+      // width of the container must be specific to match the new ticket width
+      container.style.width = '440px'; 
+      container.style.padding = '0';
       container.style.direction = 'rtl';
       
       const encodedCode = encodeId(data.receiptCode || `ABR-${data.bookingId}`);
@@ -42,10 +41,10 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       let qrCodeDataUrl = '';
       try {
         qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
-          width: 150,
+          width: 56,
           margin: 1,
           color: {
-            dark: '#047857',
+            dark: '#16241D',
             light: '#ffffff'
           }
         });
@@ -53,128 +52,142 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
         console.error('Failed to generate QR Code:', e);
       }
 
-      // Build the beautiful HTML template
+      // Build the beautiful new ticket HTML template
       container.innerHTML = `
-        <div style="background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: 1px solid #e5e7eb;">
+        <div style="width: 440px; margin: 0 auto; background: #FBF8F2; padding: 40px; font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; box-sizing: border-box;">
           
-          <!-- Header (Emerald Green) -->
-          <div style="background-color: #047857; color: white; padding: 40px; text-align: center; position: relative;">
-            <div style="font-size: 36px; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px;">أبريد ABRIDE</div>
-            <div style="font-size: 16px; font-weight: 600; letter-spacing: 2px; color: #dcfce7;">وصل حجز رسمي</div>
+          <!-- Brand Row -->
+          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 28px;">
+            <div style="width: 30px; height: 30px; border-radius: 9px; position: relative; background: linear-gradient(155deg, #0B6E4F, #063C2B); flex: none;">
+              <div style="position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border-radius: 5px; transform: rotate(45deg); border: 2px solid #F2A93B; border-left-color: transparent; border-bottom-color: transparent; box-sizing: border-box;"></div>
+            </div>
+            <div style="font-weight: 800; font-size: 19px; color: #111827; line-height: 1;"><span style="color: #0B6E4F;">أ</span>بريد</div>
           </div>
 
-          <!-- Body -->
-          <div style="padding: 40px;">
+          <!-- Valid Ticket Box -->
+          <div style="background: white; border-radius: 26px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(22,36,29,0.04), 0 20px 40px -18px rgba(6,60,43,0.28); box-sizing: border-box;">
             
-            <!-- Receipt Code & Status -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #e5e7eb; padding-bottom: 24px; margin-bottom: 32px;">
-              <div>
-                <div style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">رقم الوصل</div>
-                <div style="font-size: 24px; font-weight: 800; color: #111827; letter-spacing: 2px;">${data.receiptCode || `ABR-${data.bookingId}`}</div>
+            <!-- Header -->
+            <div style="position: relative; overflow: hidden; border-top-left-radius: 26px; border-top-right-radius: 26px; padding: 24px 24px 40px 24px; color: white; background: linear-gradient(155deg, #0B6E4F 0%, #063C2B 100%); box-sizing: border-box;">
+              <div style="position: absolute; top: 22px; left: 22px; display: flex; align-items: center; gap: 6px; border-radius: 9999px; border: 1.6px solid #F2A93B; padding: 7px 12px; font-size: 12.5px; font-weight: 700; color: #F2A93B; background: rgba(255,255,255,0.08); transform: rotate(-6deg); box-sizing: border-box;">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>
+                تم التحقق
               </div>
-              <div style="text-align: left;">
-                <div style="display: inline-block; background-color: #dcfce7; color: #15803d; padding: 10px 20px; border-radius: 9999px; font-weight: 800; font-size: 16px;">
-                  ✓ مؤكد بواسطة السائق
-                </div>
-              </div>
+              <p style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 4px 0;">وصل حجز رحلة</p>
+              <p style="font-size: 20px; font-weight: 800; margin: 0; line-height: 1.2;">رحلة بين المدن</p>
             </div>
 
-            <!-- Amount Focus -->
-            <div style="text-align: center; margin-bottom: 40px; background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px solid #bbf7d0; border-radius: 20px; padding: 32px;">
-              <div style="font-size: 18px; font-weight: 700; color: #047857; margin-bottom: 8px;">المبلغ الإجمالي</div>
-              <div style="font-size: 56px; font-weight: 900; color: #064e3b; line-height: 1;">
-                ${data.totalAmount} <span style="font-size: 24px; font-weight: 700; color: #047857;">د.ج</span>
+            <!-- Path Bar -->
+            <div style="background: white; margin: -24px 18px 0 18px; border-radius: 20px; padding: 18px; border: 1px solid #e5e7eb; box-shadow: 0 10px 24px -14px rgba(6,60,43,0.15); display: flex; align-items: center; gap: 12px; position: relative; z-index: 10; box-sizing: border-box;">
+              <div style="flex: 1; text-align: center;">
+                <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.fromLocation}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">نقطة الانطلاق</div>
               </div>
-              <div style="font-size: 14px; font-weight: 600; color: #047857; margin-top: 12px; background: #dcfce7; display: inline-block; padding: 4px 16px; border-radius: 20px;">
-                طريقة الدفع: ${data.paymentMethod === 'BaridiMob' ? 'بريدي موب (BaridiMob)' : 'الدفع نقداً عند الوصول (Cash)'}
-              </div>
-              ${data.paymentMethod === 'BaridiMob' ? `
-              <div style="font-size: 14px; font-weight: 700; color: #15803d; margin-top: 8px;">
-                الرجاء إرسال المبلغ إلى الحساب البريدي (RIP): <span style="direction: ltr; display: inline-block;">00799999004064855725</span>
-              </div>
-              ` : ''}
-            </div>
-
-            <!-- Details Grid -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 40px;">
               
-              <!-- Trip Details -->
-              <div style="background-color: #f8fafc; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0;">
-                <h3 style="font-size: 20px; font-weight: 800; color: #047857; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px;">تفاصيل الرحلة</h3>
-                
-                <div style="margin-bottom: 16px;">
-                  <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">مسار الرحلة</div>
-                  <div style="font-size: 18px; font-weight: 800; color: #0f172a;">من ${data.fromLocation} إلى ${data.toLocation}</div>
-                </div>
-                
-                <div style="margin-bottom: 16px;">
-                  <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">تاريخ ووقت الانطلاق</div>
-                  <div style="font-size: 18px; font-weight: 800; color: #0f172a; direction: ltr; text-align: right;">${data.departureDate}</div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; gap: 16px;">
-                  <div>
-                    <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">المقاعد المحجوزة</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #0f172a;">${data.seatsBooked} مقاعد</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">نوع الرحلة</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #0f172a;">${data.tripType || 'ذهاب فقط'}</div>
-                  </div>
-                </div>
+              <svg viewBox="0 0 64 20" style="flex: none; width: 64px; height: 20px;">
+                <line x1="4" y1="10" x2="60" y2="10" stroke="#D8D2C2" stroke-width="2" stroke-dasharray="4 4" />
+                <circle cx="32" cy="10" r="4" fill="#F2A93B" />
+              </svg>
+              
+              <div style="flex: 1; text-align: center;">
+                <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.toLocation}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">الوجهة</div>
               </div>
+            </div>
 
-              <!-- Persons Details -->
-              <div style="background-color: #f8fafc; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0;">
-                <h3 style="font-size: 20px; font-weight: 800; color: #047857; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px;">معلومات الراكب والسائق</h3>
-                
-                <div style="margin-bottom: 16px;">
-                  <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">اسم الراكب</div>
-                  <div style="font-size: 18px; font-weight: 800; color: #0f172a;">${data.passengerName}</div>
-                </div>
-                
-                <div style="margin-bottom: 16px;">
-                  <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">السائق المسؤول</div>
-                  <div style="font-size: 18px; font-weight: 800; color: #0f172a;">${data.driverName}</div>
-                </div>
-
+            <!-- Details -->
+            <div style="padding: 24px 24px 6px 24px; box-sizing: border-box;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px 14px;">
                 <div>
-                  <div style="font-size: 14px; color: #64748b; font-weight: 700; margin-bottom: 4px;">هاتف السائق للتواصل</div>
-                  <div style="font-size: 18px; font-weight: 800; color: #0f172a; direction: ltr; text-align: right;">${data.driverPhone || '---'}</div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">التاريخ</div>
+                  <div style="font-size: 14.5px; font-weight: 700; color: #111827;">${data.departureDate}</div>
+                </div>
+                <div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">وقت الانطلاق</div>
+                  <div style="font-size: 14.5px; font-weight: 700; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.departureTime || '---'}</div>
+                </div>
+                <div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">اسم الراكب</div>
+                  <div style="font-size: 14.5px; font-weight: 700; color: #111827;">${data.passengerName}</div>
+                </div>
+                <div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">رقم المقعد</div>
+                  <div style="font-size: 14.5px; font-weight: 700; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.seatsBooked}</div>
                 </div>
               </div>
+
+              <!-- Perforation -->
+              <div style="position: relative; height: 1px; margin: 20px -24px;">
+                <div style="position: absolute; top: -13px; left: -13px; width: 26px; height: 26px; border-radius: 50%; background: #FBF8F2;"></div>
+                <div style="position: absolute; top: -13px; right: -13px; width: 26px; height: 26px; border-radius: 50%; background: #FBF8F2;"></div>
+                <div style="position: absolute; left: 24px; right: 24px; top: 0; border-top: 2px dashed #E1DACB;"></div>
+              </div>
+
+              <!-- Booking Code -->
+              <div style="margin-bottom: 20px;">
+                <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">رمز الحجز</div>
+                <div style="font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.receiptCode || \`ABR-\${data.bookingId}\`}</div>
+              </div>
+
+              <!-- Amount -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F3EEE1; border-radius: 14px; padding: 13px 16px; margin: 20px 0; box-sizing: border-box;">
+                <span style="font-size: 13px; font-weight: 700; color: #4B5A50;">المبلغ المدفوع</span>
+                <span style="font-size: 19px; font-weight: 800; color: #0B6E4F; font-family: monospace; direction: ltr;">
+                  ${data.totalAmount} <span style="font-size: 12px; font-weight: 700; font-family: 'Cairo', sans-serif;">دج</span>
+                </span>
+              </div>
+              
+              <!-- Driver Info -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1px solid #E1DACB; border-radius: 14px; padding: 13px 16px; margin: 0 0 20px 0; box-sizing: border-box;">
+                <span style="font-size: 13px; font-weight: 700; color: #4B5A50;">السائق: ${data.driverName}</span>
+                <span style="font-size: 14px; font-weight: 800; color: #111827; font-family: monospace; direction: ltr;">
+                  ${data.driverPhone || '---'}
+                </span>
+              </div>
+              
+              <!-- BaridiMob Notice -->
+              ${data.paymentMethod === 'BaridiMob' ? \`
+              <div style="font-size: 12px; font-weight: 700; color: #15803d; text-align: center; margin-bottom: 16px; background: #dcfce7; padding: 12px; border-radius: 10px; line-height: 1.5; box-sizing: border-box;">
+                الرجاء إرسال المبلغ إلى الحساب البريدي (RIP):<br>
+                <span style="direction: ltr; display: inline-block; font-family: monospace; margin-top: 6px; font-size: 14px;">00799999004064855725</span>
+              </div>
+              \` : ''}
+
             </div>
 
-            <!-- Footer with QR -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #e5e7eb; padding-top: 24px;">
-              <div>
-                <div style="font-size: 14px; font-weight: 700; color: #1f2937; margin-bottom: 8px;">للتحقق من صحة هذا الوصل، امسح الرمز المربع (QR Code) أو قم بزيارة الرابط:</div>
-                <div style="font-size: 13px; font-weight: 600; color: #047857; direction: ltr; text-align: right; background: #f0fdf4; padding: 8px; border-radius: 8px;">${verificationUrl}</div>
-                <div style="font-size: 12px; font-weight: 600; color: #9ca3af; margin-top: 16px;">تم الإنشاء آلياً بواسطة منصة أبريد - Abride.online</div>
+            <!-- Footer -->
+            <div style="padding: 0 24px 24px 24px; display: flex; align-items: center; gap: 12px; box-sizing: border-box;">
+              <div style="flex: none; width: 56px; height: 56px; border-radius: 10px; border: 1px solid #E1DACB; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
+                  ${qrCodeDataUrl ? \`<img src="\${qrCodeDataUrl}" alt="QR" style="width: 56px; height: 56px; display: block;" />\` : ''}
               </div>
-              <div style="background: white; padding: 10px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" alt="QR Code" style="width: 120px; height: 120px; display: block;" />` : ''}
-              </div>
+              <p style="font-size: 11.5px; line-height: 1.6; color: #4B5A50; margin: 0;">
+                <b style="color: #16241D;">وصل موثّق إلكترونياً</b> عبر منصة أبريد. أي تعديل على بيانات الرابط يُبطل صلاحية هذا الوصل تلقائياً.
+              </p>
             </div>
+          </div>
 
+          <div style="text-align: center; font-size: 11px; color: #4B5A50; margin-top: 24px; font-weight: 600;">
+            تم التحقق في ${new Date().toLocaleString('ar-DZ')}
           </div>
         </div>
       `;
 
       document.body.appendChild(container);
 
-      // Wait a tiny bit for fonts to render (optional, but good for Cairo font)
+      // Wait for fonts to load
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
             scale: 2, // High resolution
             useCORS: true,
             logging: false,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#FBF8F2' // match background
           });
 
-          // A4 dimensions
+          // PDF generation - make it look like a nice ticket rather than a full A4 page
           const imgData = canvas.toDataURL('image/png');
+          
+          // Use standard A4
           const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
@@ -184,10 +197,15 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const pdfWidth = pdf.internal.pageSize.getWidth();
           const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-          // Center the image vertically if it's smaller than the page
-          const yPos = pdfHeight < pdf.internal.pageSize.getHeight() ? 10 : 0;
+          // Center the ticket horizontally and vertically
+          const yPos = pdfHeight < pdf.internal.pageSize.getHeight() ? 15 : 0;
+          
+          // Width of ticket in mm (we'll scale it down a bit so it looks nice on A4)
+          const targetWidth = 120; // 120mm wide
+          const targetHeight = (canvas.height * targetWidth) / canvas.width;
+          const xPos = (pdfWidth - targetWidth) / 2;
 
-          pdf.addImage(imgData, 'PNG', 0, yPos, pdfWidth, pdfHeight);
+          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight);
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];

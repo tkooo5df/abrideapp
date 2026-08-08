@@ -541,6 +541,11 @@ export class NotificationService {
       // 3. Notify admins - System monitoring
       if (adminProfiles.length > 0) {
         for (const admin of adminProfiles) {
+          // Prevent duplicate notification if the admin is testing as driver or passenger
+          if (admin.id === bookingData.driverId || admin.id === bookingData.passengerId) {
+            continue;
+          }
+          
           const isDeveloper = admin.role === 'developer';
           const title = isDeveloper ? '🔧 نشاط جديد بين الركاب والسائقين' : '📊 حجز جديد في النظام';
           const message = isDeveloper
