@@ -134,7 +134,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                   <div style="font-size: 14.5px; font-weight: 700; color: #111827;">${data.passengerName}</div>
                 </div>
                 <div>
-                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">رقم المقعد</div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">عدد المقاعد</div>
                   <div style="font-size: 14.5px; font-weight: 700; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.seatsBooked}</div>
                 </div>
               </div>

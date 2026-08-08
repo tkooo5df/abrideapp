@@ -38,6 +38,8 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [profile, setProfile] = useState<any>(null);
   
+  const isSubmittingRef = useRef(false);
+
   // Baridimob step state
   const [showBaridimobStep, setShowBaridimobStep] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
@@ -146,6 +148,8 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
     }
 
     // Handle Baridimob step transition
+    if (isSubmittingRef.current) return;
+    
     if (bookingForm.paymentMethod === 'bpm' && !showBaridimobStep) {
       setShowBaridimobStep(true);
       return;
@@ -160,6 +164,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
@@ -220,6 +225,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
         description: error.message || "حدث خطأ أثناء إرسال طلب الحجز",
         variant: "destructive"
       });
+      isSubmittingRef.current = false;
     } finally {
       setLoading(false);
     }

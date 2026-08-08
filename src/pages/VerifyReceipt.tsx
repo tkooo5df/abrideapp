@@ -19,6 +19,10 @@ type ReceiptData = {
   bookingCode: string;
   amount: string;
   verifiedAt: string;
+  bookingId?: string;
+  tripType?: string;
+  returnDate?: string;
+  returnTime?: string;
 };
 
 type VerifyState =
@@ -225,15 +229,24 @@ function ValidTicket({ data }: { data: ReceiptData }) {
         {/* التفاصيل */}
         <div className="px-6 pt-5 pb-1.5">
           <div className="grid grid-cols-2 gap-x-3.5 gap-y-4">
-            <Field label="التاريخ" value={data.date} />
+            <Field label="نوع الرحلة" value={data.tripType === 'round_trip' || data.tripType?.includes('إياب') ? 'ذهاب وإياب' : 'ذهاب فقط'} />
+            <Field label="عدد المقاعد" value={data.seatNumber + ' مقاعد'} mono />
+            
+            <Field label="تاريخ الانطلاق" value={data.date} />
             <Field label="وقت الانطلاق" value={data.time} mono />
+            
+            {(data.tripType === 'round_trip' || data.tripType?.includes('إياب')) && data.returnDate && (
+              <>
+                <Field label="تاريخ العودة" value={data.returnDate} />
+                <Field label="وقت العودة" value={data.returnTime || 'غير محدد'} mono />
+              </>
+            )}
+
             <Field label="اسم الراكب" value={data.passengerName} />
-            <Field label="رقم المقعد" value={data.seatNumber} mono />
+            <Field label="رمز الحجز" value={data.bookingCode} mono />
           </div>
 
           <Perforation />
-
-          <Field label="رمز الحجز" value={data.bookingCode} mono large />
 
           <div className="flex items-center justify-between bg-[#F3EEE1] print:bg-gray-100 rounded-[14px] px-4 py-[13px] my-5">
             <span className="text-[13px] font-bold text-[#4B5A50]">المبلغ المدفوع</span>
