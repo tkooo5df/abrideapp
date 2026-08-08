@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { uploadReceipt } from '@/utils/receiptUpload';
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,11 +13,11 @@ import { BrowserDatabaseService } from '@/integrations/database/browserServices'
 import { useAuth } from '@/hooks/useAuth';
 import { useLocalAuth } from '@/hooks/useLocalAuth';
 import { useDatabase } from '@/hooks/useDatabase';
-import { Clock, MapPin, Users, Banknote, Car, User, Phone } from 'lucide-react';
+import { Clock, MapPin, Users, Banknote, Car, User, Phone, Upload, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import LoginPromptModal from '@/components/auth/LoginPromptModal';
 import ProfileCompletionModal from '@/components/booking/ProfileCompletionModal';
-import { validateProfileForBooking, type ProfileValidationResult } from '@/utils/profileValidation';
+import { validateProfileForBooking } from '@/utils/profileValidation';
 
 interface BookingModalProps {
   trip: any;
@@ -29,47 +31,48 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
   const { user: localUser } = useLocalAuth();
   const { isLocal } = useDatabase();
   const { toast } = useToast();
+  
   const [loading, setLoading] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showProfileCompletionModal, setShowProfileCompletionModal] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  
+  // Baridimob step state
+  const [showBaridimobStep, setShowBaridimobStep] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSubmittingRef = useRef(false);
 
-  // Use local user if using local database, otherwise use Supabase user
   const user = isLocal ? localUser : supabaseUser;
-
-  // Check if user is authenticated
   const isAuthenticated = user && user.id;
+
+  const isBusTrip = trip.isBusTrip || trip.totalSeats > 30 || (trip.vehicle && trip.vehicle.type === 'bus');
+
   const [bookingForm, setBookingForm] = useState({
-    pickupLocation: trip.fromWilayaName || '',  // Auto-fill from trip (الولاية)
-    destinationLocation: trip.toWilayaName || '',  // Auto-fill from trip (الولاية)
-    fromKsar: (trip as any).fromKsar || '',  // القصر للانطلاق
-    pickupPoint: '',  // النقطة المحددة للانطلاق
-    destinationPoint: '',  // النقطة المحددة للوصول
+    pickupLocation: trip.fromWilayaName || '',
+    destinationLocation: trip.toWilayaName || '',
+    fromKsar: trip.fromKsar || '',
+    pickupPoint: '',
+    destinationPoint: '',
     seatsBooked: '1',
     paymentMethod: 'cod',
-    notes: '',
-    pickupTime: trip.departureTime,
+    tripType: (trip.returnDate || isBusTrip) ? 'round_trip' : 'outbound',
     specialRequests: ''
   });
-  const navigate = useNavigate();
 
-  // Get database service
+  const navigate = useNavigate();
   const { getDatabaseService } = useDatabase();
 
-  // Fetch user profile when modal opens and user is authenticated
   useEffect(() => {
     const fetchProfile = async () => {
       if (!isOpen || !isAuthenticated) return;
-
       try {
         if (isLocal) {
-          // For local database, get profile from local service
           const db = getDatabaseService();
           const localProfile = await db.getProfile(user.id);
           setProfile(localProfile);
         } else {
-          // For Supabase, use authProfile or fetch it
           if (authProfile) {
             setProfile(authProfile);
           } else {
@@ -77,20 +80,15 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
             setProfile(userProfile);
           }
         }
-      } catch (error) {
-        // Error fetching profile - silently fail
-      }
+      } catch (error) {}
     };
-
     fetchProfile();
   }, [isOpen, isAuthenticated, user, isLocal, authProfile, getDatabaseService]);
 
-  // Check authentication and profile completion when modal opens
   useEffect(() => {
     if (isOpen && !isAuthenticated) {
       setShowLoginPrompt(true);
     } else if (isOpen && isAuthenticated && profile) {
-      // Validate profile for booking
       const validation = validateProfileForBooking(profile);
       if (!validation.isValid) {
         setMissingProfileFields(validation.missingFields);
@@ -101,24 +99,41 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
 
   const handleClose = () => {
     setShowLoginPrompt(false);
+    setShowBaridimobStep(false);
+    setReceiptImage(null);
     onClose();
   };
 
-  const handleLoginPromptClose = () => {
-    setShowLoginPrompt(false);
-    onClose();
+  const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "حجم الصورة كبير جداً",
+          description: "الرجاء اختيار صورة لا تتجاوز 5 ميغابايت",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check if user is authenticated
+    if (isSubmittingRef.current) return;
+
     if (!isAuthenticated) {
       setShowLoginPrompt(true);
       return;
     }
 
-    // Validate profile before allowing booking
     if (profile) {
       const validation = validateProfileForBooking(profile);
       if (!validation.isValid) {
@@ -131,92 +146,76 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
         });
         return;
       }
-    } else {
-      // Profile not loaded yet, try to fetch it
-      try {
-        const userProfile = isLocal 
-          ? await getDatabaseService().getProfile(user.id)
-          : await BrowserDatabaseService.getProfile(user.id);
-        
-        if (userProfile) {
-          setProfile(userProfile);
-          const validation = validateProfileForBooking(userProfile);
-          if (!validation.isValid) {
-            setMissingProfileFields(validation.missingFields);
-            setShowProfileCompletionModal(true);
-            toast({
-              title: "معلومات الملف الشخصي ناقصة",
-              description: validation.message,
-              variant: "destructive"
-            });
-            return;
-          }
-        } else {
-          toast({
-            title: "خطأ",
-            description: "لم يتم العثور على الملف الشخصي. يرجى إكمال بياناتك أولاً.",
-            variant: "destructive"
-          });
-          return;
-        }
-      } catch (error) {
-        toast({
-          title: "خطأ",
-          description: "حدث خطأ أثناء التحقق من الملف الشخصي.",
-          variant: "destructive"
-        });
-        return;
-      }
+    }
+
+    // Handle Baridimob step transition
+    if (bookingForm.paymentMethod === 'bpm' && !showBaridimobStep) {
+      setShowBaridimobStep(true);
+      return;
+    }
+
+    if (bookingForm.paymentMethod === 'bpm' && showBaridimobStep && !receiptImage) {
+      toast({
+        title: "وصل الدفع مطلوب",
+        description: "يرجى إرفاق وصل الدفع الخاص ببريدي موب لإتمام الحجز",
+        variant: "destructive"
+      });
+      return;
     }
 
     setLoading(true);
 
     try {
       const seatsCount = parseInt(bookingForm.seatsBooked);
-      const totalAmount = seatsCount * trip.pricePerSeat;
+      const isRoundTrip = bookingForm.tripType === 'round_trip';
+      const legMultiplier = isRoundTrip ? 2 : 1;
+      const totalAmount = seatsCount * trip.pricePerSeat * legMultiplier;
 
-      // Check if enough seats are available
       if (seatsCount > trip.availableSeats) {
         throw new Error(`المقاعد المتاحة فقط ${trip.availableSeats}`);
       }
 
-      // Create the booking
+      // If it's a bus, we don't ask the user for specific points. Just default to Wilaya names.
+      const finalPickupPoint = isBusTrip ? 'محطة الحافلات' : bookingForm.pickupPoint;
+      const finalDestPoint = isBusTrip ? 'محطة الحافلات' : bookingForm.destinationPoint;
+
+      let uploadedReceiptUrl = receiptImage;
+      if (receiptImage && receiptImage.startsWith('data:image')) {
+        const url = await uploadReceipt(receiptImage, trip.id);
+        if (url) uploadedReceiptUrl = url;
+      }
+
       const booking = await BrowserDatabaseService.createBooking({
         passengerId: user.id,
         driverId: trip.driverId,
         tripId: trip.id,
-        pickupLocation: bookingForm.pickupLocation,  // الولاية
-        destinationLocation: bookingForm.destinationLocation,  // الولاية
-        fromKsar: trip.fromWilayaId === 47 ? (bookingForm.fromKsar || (trip as any).fromKsar || null) : null,  // القصر
-        pickupPoint: bookingForm.pickupPoint,  // النقطة المحددة
-        destinationPoint: bookingForm.destinationPoint,  // النقطة المحددة
+        pickupLocation: bookingForm.pickupLocation,
+        destinationLocation: bookingForm.destinationLocation,
+        fromKsar: trip.fromWilayaId === 47 ? (bookingForm.fromKsar || trip.fromKsar || null) : null,
+        pickupPoint: finalPickupPoint,
+        destinationPoint: finalDestPoint,
         seatsBooked: seatsCount,
         totalAmount,
         paymentMethod: bookingForm.paymentMethod as 'cod' | 'bpm',
-        notes: bookingForm.notes,
-        pickupTime: bookingForm.pickupTime,
+        tripType: bookingForm.tripType,
+        returnDate: trip.returnDate || undefined,
+        returnTime: trip.returnTime || undefined,
         specialRequests: bookingForm.specialRequests,
+        pickupTime: trip.departureTime, // Use default
+        receiptUrl: uploadedReceiptUrl || undefined,
         status: 'pending'
       });
-
-      // Update trip availability immediately to reserve seats upon booking
-      await BrowserDatabaseService.updateTripAvailability(trip.id);
-
-      // الإشعارات تُرسل تلقائياً من browserServices.ts في createBooking
-      // لا حاجة لإرسالها مرة أخرى هنا
 
       toast({
         title: "تم إرسال طلب الحجز بنجاح",
         description: "سيتم إشعارك عند موافقة السائق على الحجز",
       });
 
-      // Store booking success flag to trigger data refresh in other components
       localStorage.setItem('booking_success', Date.now().toString());
 
       onSuccess();
-      onClose();
+      handleClose();
       
-      // Navigate to success page
       navigate(`/booking-success?bookingId=${booking.id}`);
     } catch (error: any) {
       toast({
@@ -226,224 +225,325 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
       });
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
   if (!isOpen) return null;
 
-  // If user is not authenticated, show login prompt
   if (!isAuthenticated) {
-    return (
-      <>
-      <LoginPromptModal
-        isOpen={showLoginPrompt}
-        onClose={handleLoginPromptClose}
-        title="تسجيل الدخول مطلوب للحجز"
-        description="لإكمال عملية حجز المقعد، يرجى تسجيل الدخول أو إنشاء حساب جديد"
-      />
-      </>
-    );
+    return <LoginPromptModal isOpen={showLoginPrompt} onClose={() => { setShowLoginPrompt(false); onClose(); }} title="تسجيل الدخول مطلوب للحجز" description="لإكمال عملية حجز المقعد، يرجى تسجيل الدخول أو إنشاء حساب جديد" />;
   }
 
-  // Show profile completion modal if profile is incomplete
   if (showProfileCompletionModal) {
-    return (
-      <>
-        <ProfileCompletionModal
-          isOpen={showProfileCompletionModal}
-          onClose={() => {
-            setShowProfileCompletionModal(false);
-            onClose();
-          }}
-          missingFields={missingProfileFields}
-        />
-      </>
-    );
+    return <ProfileCompletionModal isOpen={showProfileCompletionModal} onClose={() => { setShowProfileCompletionModal(false); onClose(); }} missingFields={missingProfileFields} />;
   }
+
+  // Calculate costs
+  const seats = parseInt(bookingForm.seatsBooked || '1');
+  const isRound = bookingForm.tripType === 'round_trip';
+  const totalCost = seats * trip.pricePerSeat * (isRound ? 2 : 1);
+
+  // Baridimob system RIP placeholder (or can be fetched from DB)
+  const systemRip = "007 99999 0021356478 91"; 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle className="text-center text-xl">حجز مقعد في الرحلة</CardTitle>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl rounded-2xl">
+        <CardHeader className="text-center pb-2 border-b">
+          <CardTitle className="text-2xl font-bold text-foreground font-cairo">حجز مقعد في الرحلة</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Trip Details */}
-          <div className="bg-primary/10 p-4 rounded-lg">
-            <div className="flex items-center gap-2 text-lg font-medium">
-              <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
-              <span className="truncate">
-                {trip.fromWilayaName}
-                {trip.fromWilayaId === 47 && trip.fromKsar && (
-                  <span className="text-xs text-primary font-medium mr-1"> - {trip.fromKsar}</span>
-                )}
-              </span>
-              <span className="text-muted-foreground">←</span>
-              <span className="truncate">{trip.toWilayaName}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>{trip.departureDate} في {trip.departureTime}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Banknote className="h-4 w-4 text-muted-foreground" />
-                <span>{trip.pricePerSeat} دج للمقعد</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{trip.availableSeats} مقعد متاح</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Car className="h-4 w-4 text-muted-foreground" />
-                <span>{trip.vehicle?.make} {trip.vehicle?.model}</span>
-              </div>
-            </div>
-            {trip.driver && (
-              <div className="mt-3 pt-3 border-t border-primary/20">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>السائق: {trip.driver.fullName}</span>
-                  <Phone className="h-4 w-4 text-muted-foreground ml-2" />
-                  <span>{trip.driver.phone}</span>
+        
+        <CardContent className="p-6">
+          {!showBaridimobStep ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Modern Trip Details Header */}
+              <div className="bg-[#eefcf4] dark:bg-emerald-950/20 rounded-2xl p-5 relative overflow-hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xl font-bold text-emerald-900 dark:text-emerald-300">
+                      <MapPin className="h-5 w-5 flex-shrink-0" />
+                      <span>{trip.fromWilayaName}</span>
+                      <span className="text-emerald-600/50">←</span>
+                      <span>{trip.toWilayaName}</span>
+                    </div>
+                    {trip.fromWilayaId === 47 && trip.fromKsar && (
+                      <div className="text-sm text-emerald-700/80 font-medium px-7">
+                        الانطلاق من: {trip.fromKsar}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-emerald-800 dark:text-emerald-400">
+                      {trip.pricePerSeat} <span className="text-sm font-medium">دج للمقعد</span>
+                    </div>
+                    <div className="text-sm text-emerald-700/70 font-medium flex items-center justify-end gap-1 mt-1">
+                      <Clock className="w-4 h-4" />
+                      <span>{trip.departureDate} في {trip.departureTime}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-emerald-200/50 flex flex-wrap items-center justify-between gap-4 text-sm text-emerald-800 dark:text-emerald-200">
+                  <div className="flex items-center gap-1.5 font-medium bg-white/50 dark:bg-black/20 px-3 py-1.5 rounded-full">
+                    <Users className="w-4 h-4" />
+                    <span>{trip.availableSeats} مقعد متاح</span>
+                  </div>
+                  {trip.vehicle && (
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Car className="w-4 h-4" />
+                      <span>{trip.vehicle.make} {trip.vehicle.model}</span>
+                    </div>
+                  )}
+                  {trip.driver && (
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <User className="w-4 h-4" />
+                      <span>السائق: {trip.driver.fullName}</span>
+                      <span className="opacity-50 ml-1">|</span>
+                      <Phone className="w-3 h-3 ml-1" />
+                      <span dir="ltr">{trip.driver.phone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Booking Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Hidden fields for wilaya names */}
-            <input type="hidden" name="pickupLocation" value={bookingForm.pickupLocation} />
-            <input type="hidden" name="destinationLocation" value={bookingForm.destinationLocation} />
-            
-            {/* Show wilaya info */}
-            <div className="bg-secondary/20 p-3 rounded-lg mb-4">
-              <p className="text-sm text-muted-foreground">
-                الولاية: <span className="font-semibold text-foreground">{bookingForm.pickupLocation}</span>
-                {trip.fromWilayaId === 47 && trip.fromKsar && (
-                  <span className="text-xs text-primary font-medium mr-1"> - {trip.fromKsar}</span>
-                )}
-                {' ← '}
-                <span className="font-semibold text-foreground">{bookingForm.destinationLocation}</span>
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
+              {/* Show Wilaya Route Info */}
+              <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/50 flex items-center gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">الولاية:</span>
+                <span className="font-bold text-amber-900 dark:text-amber-100">{bookingForm.pickupLocation}</span>
+                <span className="text-amber-600/50">←</span>
+                <span className="font-bold text-amber-900 dark:text-amber-100">{bookingForm.destinationLocation}</span>
+              </div>
+
+              {/* Dynamic Pick-up & Drop-off Points */}
+              {!isBusTrip && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label className="font-bold text-sm">النقطة المحددة للانطلاق *</Label>
+                    <Input
+                      value={bookingForm.pickupPoint}
+                      onChange={(e) => setBookingForm(prev => ({ ...prev, pickupPoint: e.target.value }))}
+                      placeholder="مثال: محطة الحافلات، ساحة الاستقلال"
+                      className="h-11 bg-muted/30 focus:bg-background transition-colors"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">أدخل المكان المحدد داخل {bookingForm.pickupLocation}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold text-sm">النقطة المحددة للوصول *</Label>
+                    <Input
+                      value={bookingForm.destinationPoint}
+                      onChange={(e) => setBookingForm(prev => ({ ...prev, destinationPoint: e.target.value }))}
+                      placeholder="مثال: محطة الحافلات، وسط المدينة"
+                      className="h-11 bg-muted/30 focus:bg-background transition-colors"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">أدخل المكان المحدد داخل {bookingForm.destinationLocation}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Trip Type Selector */}
+              {(trip.returnDate || isBusTrip) && (
+                <div className="space-y-3">
+                  <Label className="font-bold text-sm">نوع الحجز المطلوب *</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setBookingForm(prev => ({ ...prev, tripType: 'round_trip' }))}
+                      className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                        bookingForm.tripType === 'round_trip'
+                          ? 'border-emerald-600 bg-emerald-600 text-white shadow-md transform scale-[1.02]'
+                          : 'border-muted bg-muted/20 text-foreground hover:bg-muted/50 hover:border-emerald-300'
+                      }`}
+                    >
+                      <span className="font-bold text-sm">🔄 ذهاب وإياب</span>
+                      <span className={`text-[11px] ${bookingForm.tripType === 'round_trip' ? 'text-emerald-100' : 'text-muted-foreground'}`}>الرحلتين معاً</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingForm(prev => ({ ...prev, tripType: 'outbound' }))}
+                      className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                        bookingForm.tripType === 'outbound'
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-md transform scale-[1.02]'
+                          : 'border-muted bg-muted/20 text-foreground hover:bg-muted/50 hover:border-blue-300'
+                      }`}
+                    >
+                      <span className="font-bold text-sm">➡️ ذهاب فقط</span>
+                      <span className={`text-[11px] ${bookingForm.tripType === 'outbound' ? 'text-blue-100' : 'text-muted-foreground'}`}>رحلة الذهاب</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingForm(prev => ({ ...prev, tripType: 'return' }))}
+                      className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                        bookingForm.tripType === 'return'
+                          ? 'border-purple-600 bg-purple-600 text-white shadow-md transform scale-[1.02]'
+                          : 'border-muted bg-muted/20 text-foreground hover:bg-muted/50 hover:border-purple-300'
+                      }`}
+                    >
+                      <span className="font-bold text-sm">⬅️ عودة فقط</span>
+                      <span className={`text-[11px] ${bookingForm.tripType === 'return' ? 'text-purple-100' : 'text-muted-foreground'}`}>رحلة العودة</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm">عدد المقاعد *</Label>
+                  <Select value={bookingForm.seatsBooked} onValueChange={(v) => setBookingForm(prev => ({ ...prev, seatsBooked: v }))}>
+                    <SelectTrigger className="h-11 bg-muted/30">
+                      <SelectValue placeholder="اختر عدد المقاعد" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: Math.min(trip.availableSeats || 50, isBusTrip ? 49 : 4) }, (_, i) => (
+                        <SelectItem key={i + 1} value={(i + 1).toString()}>
+                          {i + 1} {i === 0 ? 'مقعد' : 'مقاعد'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm">طريقة الدفع *</Label>
+                  <Select value={bookingForm.paymentMethod} onValueChange={(v) => setBookingForm(prev => ({ ...prev, paymentMethod: v }))}>
+                    <SelectTrigger className="h-11 bg-muted/30">
+                      <SelectValue placeholder="اختر طريقة الدفع" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cod">نقداً عند الوصول</SelectItem>
+                      <SelectItem value="bpm">بريدي موب (BaridiMob)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="pickupPoint">النقطة المحددة للانطلاق *</Label>
-                <Input
-                  id="pickupPoint"
-                  value={bookingForm.pickupPoint}
-                  onChange={(e) => setBookingForm(prev => ({ ...prev, pickupPoint: e.target.value }))}
-                  placeholder="مثال: محطة الحافلات، ساحة الاستقلال"
-                  required
+                <Label className="font-bold text-sm">طلبات خاصة (اختياري)</Label>
+                <Textarea
+                  value={bookingForm.specialRequests}
+                  onChange={(e) => setBookingForm(prev => ({ ...prev, specialRequests: e.target.value }))}
+                  placeholder="أي طلبات خاصة للرحلة"
+                  className="bg-muted/30 focus:bg-background resize-none min-h-[80px]"
                 />
-                <p className="text-xs text-muted-foreground">أدخل المكان المحدد داخل {bookingForm.pickupLocation}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="destinationPoint">النقطة المحددة للوصول *</Label>
-                <Input
-                  id="destinationPoint"
-                  value={bookingForm.destinationPoint}
-                  onChange={(e) => setBookingForm(prev => ({ ...prev, destinationPoint: e.target.value }))}
-                  placeholder="مثال: محطة الحافلات، ساحة الاستقلال"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">أدخل المكان المحدد داخل {bookingForm.destinationLocation}</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="seats">عدد المقاعد *</Label>
-                <Select 
-                  value={bookingForm.seatsBooked} 
-                  onValueChange={(value) => setBookingForm(prev => ({ ...prev, seatsBooked: value }))}
+              {/* Total Cost Breakdown */}
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="font-bold text-emerald-900 dark:text-emerald-100 text-lg">إجمالي التكلفة</div>
+                  <div className="text-sm font-medium text-emerald-700/80 dark:text-emerald-400/80">
+                    {seats} مقعد × {trip.pricePerSeat} دج {isRound ? '× 2 رحلات' : ''}
+                  </div>
+                </div>
+                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                  {totalCost} <span className="text-base font-bold text-emerald-600/70">دج</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={handleClose} disabled={loading} className="w-1/3 h-12 font-bold rounded-xl text-muted-foreground">
+                  إلغاء
+                </Button>
+                <Button type="submit" disabled={loading} className="w-2/3 h-12 font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-lg shadow-lg hover:shadow-emerald-600/25 transition-all">
+                  {loading ? "جاري المعالجة..." : bookingForm.paymentMethod === 'bpm' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      متابعة الدفع <ArrowRight className="w-5 h-5 rotate-180" />
+                    </span>
+                  ) : "تأكيد الحجز"}
+                </Button>
+              </div>
+
+            </form>
+          ) : (
+            /* Baridimob Upload Step */
+            <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                  <Banknote className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground font-cairo">الدفع عبر بريدي موب</h3>
+                <p className="text-muted-foreground text-sm">
+                  يرجى تحويل مبلغ <span className="font-bold text-emerald-600">{totalCost} دج</span> إلى الحساب التالي، ثم إرفاق صورة لوصل الدفع.
+                </p>
+              </div>
+
+              <div className="bg-muted/30 p-5 rounded-2xl border-2 border-dashed text-center">
+                <div className="text-sm text-muted-foreground font-medium mb-1">رقم الـ RIP:</div>
+                <div className="text-2xl font-black tracking-widest text-foreground select-all font-mono py-2">{systemRip}</div>
+                <div className="text-sm font-medium text-muted-foreground mt-2">منصة أبريد</div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="font-bold text-sm">إرفاق صورة الوصل *</Label>
+                
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`relative border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
+                    receiptImage 
+                      ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' 
+                      : 'border-muted hover:border-emerald-400 hover:bg-muted/30'
+                  }`}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر عدد المقاعد" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: Math.min(trip.availableSeats, 4) }, (_, i) => (
-                      <SelectItem key={i + 1} value={(i + 1).toString()}>
-                        {i + 1} {i === 0 ? 'مقعد' : 'مقاعد'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleReceiptUpload}
+                  />
+                  
+                  {receiptImage ? (
+                    <>
+                      <div className="absolute inset-0 p-2">
+                        <div 
+                          className="w-full h-full rounded-xl bg-cover bg-center opacity-40 blur-[2px]"
+                          style={{ backgroundImage: `url(${receiptImage})` }}
+                        />
+                      </div>
+                      <CheckCircle2 className="w-12 h-12 text-emerald-500 relative z-10" />
+                      <div className="font-bold text-emerald-700 dark:text-emerald-300 relative z-10">تم إرفاق الوصل بنجاح</div>
+                      <Button variant="link" className="relative z-10 text-xs" onClick={(e) => { e.stopPropagation(); setReceiptImage(null); }}>
+                        تغيير الصورة
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-foreground">انقر لرفع صورة الوصل</div>
+                        <div className="text-xs text-muted-foreground mt-1">يدعم JPG, PNG (أقل من 5 ميغابايت)</div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment">طريقة الدفع *</Label>
-                <Select 
-                  value={bookingForm.paymentMethod} 
-                  onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowBaridimobStep(false)} 
+                  disabled={loading} 
+                  className="w-1/3 h-12 font-bold rounded-xl text-muted-foreground"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر طريقة الدفع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cod">نقداً عند الوصول</SelectItem>
-                    <SelectItem value="bpm">بريدي موب</SelectItem>
-                  </SelectContent>
-                </Select>
+                  رجوع
+                </Button>
+                <Button 
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading || !receiptImage} 
+                  className="w-2/3 h-12 font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-lg shadow-lg transition-all"
+                >
+                  {loading ? "جاري الإرسال..." : "تم الإرسال، احجز"}
+                </Button>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pickup-time">وقت الانطلاق المفضل</Label>
-              <Input
-                id="pickup-time"
-                type="time"
-                value={bookingForm.pickupTime}
-                onChange={(e) => setBookingForm(prev => ({ ...prev, pickupTime: e.target.value }))}
-              />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="special-requests">طلبات خاصة</Label>
-              <Textarea
-                id="special-requests"
-                value={bookingForm.specialRequests}
-                onChange={(e) => setBookingForm(prev => ({ ...prev, specialRequests: e.target.value }))}
-                placeholder="أي طلبات خاصة للرحلة (اختياري)"
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">ملاحظات إضافية</Label>
-              <Textarea
-                id="notes"
-                value={bookingForm.notes}
-                onChange={(e) => setBookingForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="أي ملاحظات أخرى (اختياري)"
-                rows={2}
-              />
-            </div>
-
-            {/* Total Cost */}
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">إجمالي التكلفة:</span>
-                <span className="text-lg font-bold text-green-600">
-                  {parseInt(bookingForm.seatsBooked) * trip.pricePerSeat} دج
-                </span>
-              </div>
-              <div className="text-sm text-green-600 mt-1">
-                {bookingForm.seatsBooked} مقعد × {trip.pricePerSeat} دج
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? "جاري الإرسال..." : "تأكيد الحجز"}
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-                إلغاء
-              </Button>
-            </div>
-          </form>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -452,6 +552,5 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
 
 const BookingModalWithAuth = memo(BookingModal);
 
-// Also export LoginPromptModal as a standalone component for other uses
 export { LoginPromptModal };
 export default BookingModalWithAuth;
