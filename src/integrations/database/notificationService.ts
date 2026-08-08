@@ -2428,6 +2428,7 @@ export class NotificationService {
     const driverPhone = data.metadata?.driverPhone;
     const fromLoc = data.metadata?.fromLocation || data.metadata?.pickupLocation;
     const toLoc = data.metadata?.toLocation || data.metadata?.destinationLocation;
+    const tripType = data.metadata?.tripType;
 
     // Route Strip Motif: ● ⋯⋯⋯⋯ 🚗 ⋯⋯⋯⋯ 📍 (RTL: Dep right, Arr left)
     const routeStripHtml = isTripNotification ? `
@@ -2483,10 +2484,22 @@ export class NotificationService {
 
             <!-- Details List -->
             <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="direction: rtl; text-align: right; font-size: 14px;">
+              ${tripType ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">نوع الرحلة:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">${tripType}</td>
+                </tr>
+              ` : ''}
               ${fromLoc && toLoc ? `
                 <tr>
-                  <td style="padding: 6px 0; color: #6b7280; width: 35%;">مسار الرحلة:</td>
+                  <td style="padding: 6px 0; color: #6b7280; width: 35%;">مسار الانطلاق:</td>
                   <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${fromLoc} إلى ${toLoc}</td>
+                </tr>
+              ` : ''}
+              ${tripType && tripType.includes('إياب') && fromLoc && toLoc ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">مسار العودة:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${toLoc} إلى ${fromLoc}</td>
                 </tr>
               ` : ''}
               ${driverName ? `

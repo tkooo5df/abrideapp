@@ -74,25 +74,50 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                 تم التحقق
               </div>
               <p style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 4px 0;">وصل حجز رحلة</p>
-              <p style="font-size: 20px; font-weight: 800; margin: 0; line-height: 1.2;">رحلة بين المدن</p>
+              <p style="font-size: 20px; font-weight: 800; margin: 0; line-height: 1.2;">${data.tripType || 'رحلة بين المدن'}</p>
             </div>
 
             <!-- Path Bar -->
-            <div style="background: white; margin: -24px 18px 0 18px; border-radius: 20px; padding: 18px; border: 1px solid #e5e7eb; box-shadow: 0 10px 24px -14px rgba(6,60,43,0.15); display: flex; align-items: center; gap: 12px; position: relative; z-index: 10; box-sizing: border-box;">
-              <div style="flex: 1; text-align: center;">
-                <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.fromLocation}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">نقطة الانطلاق</div>
-              </div>
+            <div style="background: white; margin: -24px 18px 0 18px; border-radius: 20px; padding: 18px; border: 1px solid #e5e7eb; box-shadow: 0 10px 24px -14px rgba(6,60,43,0.15); display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 10; box-sizing: border-box;">
               
-              <svg viewBox="0 0 64 20" style="flex: none; width: 64px; height: 20px;">
-                <line x1="4" y1="10" x2="60" y2="10" stroke="#D8D2C2" stroke-width="2" stroke-dasharray="4 4" />
-                <circle cx="32" cy="10" r="4" fill="#F2A93B" />
-              </svg>
-              
-              <div style="flex: 1; text-align: center;">
-                <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.toLocation}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">الوجهة</div>
+              <!-- Outbound Trip -->
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="flex: 1; text-align: center;">
+                  <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.fromLocation}</div>
+                  <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">نقطة الانطلاق</div>
+                </div>
+                
+                <svg viewBox="0 0 64 20" style="flex: none; width: 64px; height: 20px;">
+                  <line x1="4" y1="10" x2="60" y2="10" stroke="#D8D2C2" stroke-width="2" stroke-dasharray="4 4" />
+                  <circle cx="32" cy="10" r="4" fill="#F2A93B" />
+                </svg>
+                
+                <div style="flex: 1; text-align: center;">
+                  <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.toLocation}</div>
+                  <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">الوجهة</div>
+                </div>
               </div>
+
+              <!-- Return Trip (If Round Trip) -->
+              ${data.tripType && data.tripType.includes('إياب') ? `
+              <div style="border-top: 1px dashed #e5e7eb; padding-top: 16px; display: flex; align-items: center; gap: 12px;">
+                <div style="flex: 1; text-align: center;">
+                  <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.toLocation}</div>
+                  <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">عودة من</div>
+                </div>
+                
+                <svg viewBox="0 0 64 20" style="flex: none; width: 64px; height: 20px;">
+                  <line x1="4" y1="10" x2="60" y2="10" stroke="#0B6E4F" stroke-width="2" stroke-dasharray="4 4" />
+                  <circle cx="32" cy="10" r="4" fill="#0B6E4F" />
+                </svg>
+                
+                <div style="flex: 1; text-align: center;">
+                  <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.fromLocation}</div>
+                  <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">وصول إلى</div>
+                </div>
+              </div>
+              ` : ''}
+
             </div>
 
             <!-- Details -->
@@ -178,7 +203,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 1.5, // Reduced from 2 to 1.5 for smaller file size while keeping readability
+            scale: 3, // High resolution
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -193,8 +218,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           });
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
-          // Use JPEG compression (0.7 quality) to massively reduce file size!
-          const imgData = canvas.toDataURL('image/jpeg', 0.7);
+          // Use PNG for high quality, lossless text rendering
+          const imgData = canvas.toDataURL('image/png');
           
           // Use standard A4
           const pdf = new jsPDF({
@@ -209,12 +234,12 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           // Center the ticket horizontally and vertically
           const yPos = pdfHeight < pdf.internal.pageSize.getHeight() ? 15 : 0;
           
-          // Width of ticket in mm (we'll scale it down a bit so it looks nice on A4)
+          // Width of ticket in mm
           const targetWidth = 120; // 120mm wide
           const targetHeight = (canvas.height * targetWidth) / canvas.width;
           const xPos = (pdfWidth - targetWidth) / 2;
 
-          pdf.addImage(imgData, 'JPEG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
+          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];
