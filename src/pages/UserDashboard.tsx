@@ -4038,7 +4038,7 @@ const UserDashboard = () => {
             {(() => {
               const filteredBookings = bookings.filter((booking: any) => {
                 // EXCLUDE automatic return bookings from the list so the driver doesn't see them twice
-                if (booking.notes?.includes('حجز العودة التلقائي')) {
+                if (booking.notes?.includes('حجز العودة التلقائي') && userProfile?.role === 'driver') {
                   return false;
                 }
                 

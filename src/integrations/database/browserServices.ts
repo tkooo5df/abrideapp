@@ -1679,8 +1679,26 @@ class SupabaseDatabaseService {
         }
 
         if (returnTripId) {
-          // We no longer create a second duplicate booking row for the return trip
-          // Instead, we just update the available seats on the return leg trip immediately
+          // Check if return booking already exists for this passenger and return trip
+          const { data: existingReturnBooking } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('trip_id', returnTripId)
+            .eq('passenger_id', result.passenger_id)
+            .maybeSingle();
+
+          if (!existingReturnBooking) {
+            // Insert return booking leg
+            const returnBookingPayload = toBookingInsert({
+              ...data,
+              tripId: returnTripId,
+              tripType: 'round_trip',
+              seatsBooked: data.seatsBooked || 1,
+              notes: `حجز العودة التلقائي للذهاب والإياب (مرجع الحجز: #${result.id})`
+            });
+
+            await supabase.from('bookings').insert(returnBookingPayload);
+          }
 
           // Update available seats on the return leg trip immediately
           await this.updateTripAvailability(returnTripId);

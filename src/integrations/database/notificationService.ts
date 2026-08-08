@@ -685,9 +685,7 @@ export class NotificationService {
             seatsBooked: booking.seatsBooked || 1,
             totalAmount: booking.totalAmount || 0,
             tripType: tripTypeTranslated,
-            paymentMethod: booking.paymentMethod === 'bpm' ? 'BaridiMob' : 'Cash on Delivery',
-            returnDate: trip?.returnDate || undefined,
-            returnTime: trip?.returnTime || undefined
+            paymentMethod: booking.paymentMethod === 'bpm' ? 'BaridiMob' : 'Cash on Delivery'
           });
 
           if (pdfBase64) {
@@ -717,17 +715,7 @@ export class NotificationService {
             status: 'confirmed',
             bookingId: bookingId.toString(),
             receiptUrl: `https://abride.online/verify-receipt?code=${encodeId('ABR-'+bookingId)}&id=${encodeId(bookingId)}`,
-            attachments: pdfAttachment,
-            totalAmount: booking.totalAmount,
-            paymentMethod: booking.paymentMethod,
-            fromLocation: booking.pickupLocation || trip?.fromWilayaName || 'غير محدد',
-            toLocation: booking.destinationLocation || trip?.toWilayaName || 'غير محدد',
-            pickupLocation: booking.pickupLocation,
-            destinationLocation: booking.destinationLocation,
-            tripType: booking.tripType === 'round_trip' || booking.tripType === 'return' || booking.tripType === 'ذهاب وإياب' ? 'ذهاب وإياب' : 'ذهاب فقط',
-            returnDate: trip?.returnDate || undefined,
-            returnTime: trip?.returnTime || undefined,
-            seatsBooked: booking.seatsBooked || 1
+            attachments: pdfAttachment
           }
         };
         
@@ -2441,9 +2429,6 @@ export class NotificationService {
     const fromLoc = data.metadata?.fromLocation || data.metadata?.pickupLocation;
     const toLoc = data.metadata?.toLocation || data.metadata?.destinationLocation;
     const tripType = data.metadata?.tripType;
-    const returnDate = data.metadata?.returnDate;
-    const returnTime = data.metadata?.returnTime;
-    const seatsBooked = data.metadata?.seatsBooked;
 
     // Route Strip Motif: ● ⋯⋯⋯⋯ 🚗 ⋯⋯⋯⋯ 📍 (RTL: Dep right, Arr left)
     const routeStripHtml = isTripNotification ? `
@@ -2515,20 +2500,6 @@ export class NotificationService {
                 <tr>
                   <td style="padding: 6px 0; color: #6b7280;">مسار العودة:</td>
                   <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${toLoc} إلى ${fromLoc}</td>
-                </tr>
-                ${returnDate ? `
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">تاريخ العودة:</td>
-                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">
-                    ${returnDate} ${returnTime ? `<span style="color: #6b7280; font-weight: normal; margin-right: 4px;">(${returnTime})</span>` : ''}
-                  </td>
-                </tr>
-                ` : ''}
-              ` : ''}
-              ${seatsBooked ? `
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">عدد المقاعد:</td>
-                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">${seatsBooked} ${seatsBooked > 1 ? 'مقاعد' : 'مقعد'}</td>
                 </tr>
               ` : ''}
               ${driverName ? `

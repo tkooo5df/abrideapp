@@ -19,10 +19,6 @@ type ReceiptData = {
   bookingCode: string;
   amount: string;
   verifiedAt: string;
-  bookingId?: string;
-  tripType?: string;
-  returnDate?: string;
-  returnTime?: string;
 };
 
 type VerifyState =
@@ -116,13 +112,10 @@ export default function VerifyReceipt() {
         toCity: foundBooking.destination_location || tripData?.to_wilaya_name || 'الوصول',
         date: tripData?.departure_date || foundBooking.created_at?.split('T')[0] || '---',
         time: foundBooking.pickup_time || tripData?.departure_time || '---',
-        returnDate: tripData?.return_date || undefined,
-        returnTime: tripData?.return_time || undefined,
         passengerName: passenger?.fullName || passenger?.first_name || 'راكب أبريد',
         seatNumber: String(foundBooking.seats_booked || foundBooking.seatsBooked || '1'),
         bookingCode: foundBooking.receipt_code || `ABR-${foundBooking.id}`,
         amount: String(foundBooking.total_amount || foundBooking.totalAmount || '0'),
-        tripType: foundBooking.trip_type || tripData?.trip_type || 'outbound',
         verifiedAt: new Date().toLocaleString('ar-DZ')
       };
 
@@ -229,24 +222,15 @@ function ValidTicket({ data }: { data: ReceiptData }) {
         {/* التفاصيل */}
         <div className="px-6 pt-5 pb-1.5">
           <div className="grid grid-cols-2 gap-x-3.5 gap-y-4">
-            <Field label="نوع الرحلة" value={data.tripType === 'round_trip' || data.tripType?.includes('إياب') ? 'ذهاب وإياب' : 'ذهاب فقط'} />
-            <Field label="عدد المقاعد" value={data.seatNumber + ' مقاعد'} mono />
-            
-            <Field label="تاريخ الانطلاق" value={data.date} />
+            <Field label="التاريخ" value={data.date} />
             <Field label="وقت الانطلاق" value={data.time} mono />
-            
-            {(data.tripType === 'round_trip' || data.tripType?.includes('إياب')) && data.returnDate && (
-              <>
-                <Field label="تاريخ العودة" value={data.returnDate} />
-                <Field label="وقت العودة" value={data.returnTime || 'غير محدد'} mono />
-              </>
-            )}
-
             <Field label="اسم الراكب" value={data.passengerName} />
-            <Field label="رمز الحجز" value={data.bookingCode} mono />
+            <Field label="رقم المقعد" value={data.seatNumber} mono />
           </div>
 
           <Perforation />
+
+          <Field label="رمز الحجز" value={data.bookingCode} mono large />
 
           <div className="flex items-center justify-between bg-[#F3EEE1] print:bg-gray-100 rounded-[14px] px-4 py-[13px] my-5">
             <span className="text-[13px] font-bold text-[#4B5A50]">المبلغ المدفوع</span>

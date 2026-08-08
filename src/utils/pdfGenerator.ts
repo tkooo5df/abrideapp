@@ -20,8 +20,6 @@ interface ReceiptData {
   tripType?: string;
   paymentMethod?: string;
   createdAt?: string;
-  returnDate?: string;
-  returnTime?: string;
 }
 
 export async function generateReceiptPdfBase64(data: ReceiptData): Promise<string> {
@@ -110,10 +108,6 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                   <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">وصول إلى</div>
                 </div>
               </div>
-              <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px;">
-                <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50;">تاريخ الإياب: <span style="font-size: 13px; font-weight: 700; color: #111827; margin-right: 4px;">${data.returnDate || 'غير محدد'}</span></div>
-                <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50;">الوقت: <span style="font-size: 13px; font-weight: 700; color: #111827; margin-right: 4px; direction: ltr; display: inline-block;">${data.returnTime || 'غير محدد'}</span></div>
-              </div>
               ` : ''}
 
             </div>
@@ -134,7 +128,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                   <div style="font-size: 14.5px; font-weight: 700; color: #111827;">${data.passengerName}</div>
                 </div>
                 <div>
-                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">عدد المقاعد</div>
+                  <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50; margin-bottom: 3px;">رقم المقعد</div>
                   <div style="font-size: 14.5px; font-weight: 700; color: #111827; font-family: monospace; direction: ltr; text-align: left;">${data.seatsBooked}</div>
                 </div>
               </div>
@@ -193,7 +187,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 3, // High resolution but within payload limits
+            scale: 6, // Ultra High resolution
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -208,8 +202,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           });
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
-          // Use JPEG for smaller file size so edge function payload doesn't exceed 2MB
-          const imgData = canvas.toDataURL('image/jpeg', 0.85);
+          // Use PNG for high quality, lossless text rendering
+          const imgData = canvas.toDataURL('image/png');
           
           // Use standard A4
           const pdf = new jsPDF({
@@ -228,8 +222,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const xPos = 0; // fill width edge-to-edge
           const yPos = 0; // fill height edge-to-edge
 
-          // Use 'FAST' compression to prevent huge files
-          pdf.addImage(imgData, 'JPEG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
+          // Use 'NONE' for compression to prevent blurring
+          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'NONE');
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];
