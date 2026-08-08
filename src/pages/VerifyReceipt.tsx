@@ -112,10 +112,13 @@ export default function VerifyReceipt() {
         toCity: foundBooking.destination_location || tripData?.to_wilaya_name || 'الوصول',
         date: tripData?.departure_date || foundBooking.created_at?.split('T')[0] || '---',
         time: foundBooking.pickup_time || tripData?.departure_time || '---',
+        returnDate: tripData?.return_date || undefined,
+        returnTime: tripData?.return_time || undefined,
         passengerName: passenger?.fullName || passenger?.first_name || 'راكب أبريد',
         seatNumber: String(foundBooking.seats_booked || foundBooking.seatsBooked || '1'),
         bookingCode: foundBooking.receipt_code || `ABR-${foundBooking.id}`,
         amount: String(foundBooking.total_amount || foundBooking.totalAmount || '0'),
+        tripType: foundBooking.trip_type || tripData?.trip_type || 'outbound',
         verifiedAt: new Date().toLocaleString('ar-DZ')
       };
 

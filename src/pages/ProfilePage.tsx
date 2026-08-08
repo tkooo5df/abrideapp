@@ -92,8 +92,8 @@ const ProfilePage = () => {
     );
   }
 
-  // If trying to view another user's profile but not logged in
-  if (searchParams.get('userId') && !user) {
+  // If trying to view their own profile (no userId provided) but not logged in
+  if (!searchParams.get('userId') && !user) {
     return (
       <div className="min-h-screen bg-background">
         <Header />

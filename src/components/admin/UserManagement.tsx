@@ -453,6 +453,24 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
                                 </div>
                               </div>
                             </div>
+
+                            {/* Vehicle details for drivers */}
+                            {(selectedUser.role === 'driver' || selectedUser.vehicle_brand) && (
+                              <div className="border-t pt-4 mt-4">
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Car className="h-4 w-4 text-primary" />
+                                  معلومات المركبة (السائق)
+                                </h4>
+                                <div className="grid md:grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-lg">
+                                  <div>الماركة: <span className="font-medium">{selectedUser.vehicle_brand || selectedUser.vehicle_type || 'غير محدد'}</span></div>
+                                  <div>النموذج (Model): <span className="font-medium">{selectedUser.vehicle_model || selectedUser.vehicle_number || 'غير محدد'}</span></div>
+                                  <div>السنة: <span className="font-medium">{selectedUser.vehicle_year || 'غير محدد'}</span></div>
+                                  <div>اللون: <span className="font-medium">{selectedUser.vehicle_color || 'غير محدد'}</span></div>
+                                  <div>رقم اللوحة: <span className="font-medium">{selectedUser.vehicle_plate || 'غير محدد'}</span></div>
+                                  <div>عدد المقاعد: <span className="font-medium">{selectedUser.vehicle_seats || 'غير محدد'}</span></div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </DialogContent>

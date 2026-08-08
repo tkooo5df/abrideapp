@@ -59,7 +59,9 @@ import { AppPermissionsInitializer } from "./components/AppPermissionsInitialize
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
 import AppOnboarding from "./pages/AppOnboarding";
+import VerifyReceipt from "./pages/VerifyReceipt";
 import { NativeRouteGuard } from "./components/NativeRouteGuard";
+import { GlobalOnboardingGuard } from "./components/GlobalOnboardingGuard";
 
 // Initialize scheduled tasks
 ScheduledTasksService.startScheduledTasks();
@@ -68,12 +70,14 @@ const queryClient = new QueryClient();
 
 function App() {
   useEffect(() => {
-    // Initialize GoogleAuth
-    GoogleAuth.initialize({
-      clientId: '1078510951177-0daa3ejgcf40jjkhnqd1hgatl0cq4bf6.apps.googleusercontent.com',
-      scopes: ['profile', 'email'],
-      grantOfflineAccess: true,
-    });
+    // Initialize GoogleAuth only on native platforms to prevent gapi errors on web
+    if (Capacitor.isNativePlatform()) {
+      GoogleAuth.initialize({
+        clientId: '1078510951177-0daa3ejgcf40jjkhnqd1hgatl0cq4bf6.apps.googleusercontent.com',
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      });
+    }
 
     CapacitorApp.addListener('appUrlOpen', (event) => {
       const url = new URL(event.url);
@@ -114,9 +118,10 @@ function App() {
               v7_relativeSplatPath: true,
             }}
           >
-            <LocationPermissionRequest>
-              <NativeRouteGuard>
-                <Routes>
+            <GlobalOnboardingGuard>
+              <LocationPermissionRequest>
+                <NativeRouteGuard>
+                  <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/app-onboarding" element={<AppOnboarding />} />
                 <Route element={<ProtectedRoute />}>
@@ -177,11 +182,14 @@ function App() {
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               {/* Professional Booking Demo Route */}
               <Route path="/professional-booking-demo" element={<ProfessionalBookingDemo />} />
+              <Route path="/verify-receipt" element={<VerifyReceipt />} />
+              <Route path="/verify-ticket" element={<VerifyReceipt />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
               </NativeRouteGuard>
-              <BottomNavigationBar />
             </LocationPermissionRequest>
+          </GlobalOnboardingGuard>
+            <BottomNavigationBar />
           </BrowserRouter>
         </TooltipProvider>
       </TranslationProvider>

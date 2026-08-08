@@ -39,131 +39,57 @@ const AuthCallback = () => {
           return;
         }
 
-        // 🔥 التحقق القاطع من وجود البريد الإلكتروني في جدول profiles
-        // هذه هي الطريقة المطلوبة: التحقق من البريد أولاً قبل السماح بتسجيل الدخول
+        // Check profile by email or user ID
         const normalizedEmail = user.email.toLowerCase().trim();
         
-        const { data: existingProfileByEmail, error: profileCheckError } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('email', normalizedEmail)
           .maybeSingle();
 
-        // إذا حدث خطأ في التحقق، رفض تسجيل الدخول
-        if (profileCheckError) {
-          await supabase.auth.signOut();
-          localStorage.removeItem('googleSignUpInProgress');
-          localStorage.removeItem('googleSignInInProgress');
-          const errorMessage = 'حدث خطأ أثناء التحقق من الحساب. يرجى المحاولة مرة أخرى.';
-          navigate('/auth/signin?error=check_failed&message=' + encodeURIComponent(errorMessage));
-          return;
+        if (!profile) {
+          const { data: profileById } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+          profile = profileById;
         }
 
-        let profile;
+        // If no profile exists yet in profiles table, create initial profile
+        if (!profile) {
+          const googleName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+          const nameParts = googleName.split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
 
-        // إذا وجد profile بنفس البريد الإلكتروني
-        if (existingProfileByEmail) {
-          // 🔥 التحقق من تاريخ إنشاء profile
-          // إذا كان profile تم إنشاؤه للتو (خلال آخر 30 ثانية) وكان هذا من SignIn
-          // يعني أن الـ trigger أنشأ profile تلقائياً - يجب حذفه ورفض تسجيل الدخول
-          if (existingProfileByEmail.created_at) {
-            const profileAge = new Date().getTime() - new Date(existingProfileByEmail.created_at).getTime();
-            const isJustCreated = profileAge < 30 * 1000; // 30 ثانية (زيادة الوقت للتأكد)
-            
-            // 🔥 إذا كان profile تم إنشاؤه للتو (أقل من 30 ثانية) وكان هذا من SignIn (وليس SignUp)
-            // يعني أن الـ trigger أنشأ profile تلقائياً - يجب حذفه ورفض تسجيل الدخول
-            if (isJustCreated && (isGoogleSignIn || !isGoogleSignUp)) {
-              // حذف profile وuser الذي تم إنشاؤه تلقائياً
-              const deleteResult = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', user.id);
-              
-              // التحقق من نجاح الحذف
-              if (!deleteResult.error) {
-                // التحقق مرة أخرى من أن profile تم حذفه
-                const { data: verifyDelete } = await supabase
-                  .from('profiles')
-                  .select('id')
-                  .eq('id', user.id)
-                  .maybeSingle();
-                
-                if (verifyDelete) {
-                  // محاولة حذف مرة أخرى
-                  await supabase
-                    .from('profiles')
-                    .delete()
-                    .eq('id', user.id);
-                }
-              }
-              
-              // رفض تسجيل الدخول دائماً في هذه الحالة
-              await supabase.auth.signOut();
-              localStorage.removeItem('googleSignUpInProgress');
-              localStorage.removeItem('googleSignInInProgress');
-              const errorMessage = 'لا يوجد حساب بهذا البريد الإلكتروني. يرجى إنشاء حساب جديد من صفحة التسجيل.';
-              const errorUrl = '/auth/signup?error=no_account&message=' + encodeURIComponent(errorMessage);
-              navigate(errorUrl, { replace: true });
-              return;
-            }
-            
-          }
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({
+              id: user.id,
+              email: user.email,
+              first_name: firstName,
+              last_name: lastName,
+              full_name: googleName,
+              avatar_url: googleAvatar,
+              role: 'passenger', // Initial placeholder until selected in slides
+              onboarding_completed: false
+            })
+            .select('*')
+            .maybeSingle();
           
-          // 🔥 تحقق إضافي: إذا كان هذا من SignIn وprofile موجود
-          // يجب التأكد من أن profile ليس تم إنشاؤه للتو (أقل من دقيقة)
-          // لأن profile يجب أن يكون موجوداً مسبقاً من SignUp
-          if (isGoogleSignIn && !isGoogleSignUp && existingProfileByEmail.created_at) {
-            const profileAgeSeconds = Math.floor((new Date().getTime() - new Date(existingProfileByEmail.created_at).getTime()) / 1000);
-            
-            // إذا كان profile تم إنشاؤه خلال آخر دقيقة، يعني أنه من محاولة SignIn سابقة
-            // يجب رفض تسجيل الدخول
-            if (profileAgeSeconds < 60) {
-              // محاولة حذف profile مرة أخرى
-              await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', user.id);
-              
-              await supabase.auth.signOut();
-              localStorage.removeItem('googleSignUpInProgress');
-              localStorage.removeItem('googleSignInInProgress');
-              const errorMessage = 'لا يوجد حساب بهذا البريد الإلكتروني. يرجى إنشاء حساب جديد من صفحة التسجيل.';
-              const errorUrl = '/auth/signup?error=no_account&message=' + encodeURIComponent(errorMessage);
-              navigate(errorUrl, { replace: true });
-              return;
-            }
-          }
-          
-          profile = existingProfileByEmail;
-          // السماح بتسجيل الدخول مباشرة - البريد موجود في profiles
-        } else {
-          // 🔥 لا يوجد profile بهذا البريد الإلكتروني
-          // رفض تسجيل الدخول دائماً - لا نسمح بإنشاء حساب جديد من AuthCallback
-          // يجب إنشاء الحساب من صفحة SignUp فقط
-          await supabase.auth.signOut();
-          localStorage.removeItem('googleSignUpInProgress');
-          localStorage.removeItem('googleSignInInProgress');
-          const errorMessage = 'لا يوجد حساب بهذا البريد الإلكتروني. يرجى إنشاء حساب جديد من صفحة التسجيل.';
-          const errorUrl = '/auth/signup?error=no_account&message=' + encodeURIComponent(errorMessage);
-          navigate(errorUrl, { replace: true });
-          return;
-        }
-
-        // At this point, profile should exist - update with Google data if needed
-        if (profile && user.user_metadata) {
+          profile = newProfile;
+        } else if (user.user_metadata) {
+          // Update profile with Google name/avatar if missing
           const googleName = user.user_metadata.full_name || user.user_metadata.name || '';
           const nameParts = googleName.split(' ');
           const firstName = nameParts[0] || '';
           const lastName = nameParts.slice(1).join(' ') || '';
           const googleAvatar = user.user_metadata.avatar_url || user.user_metadata.picture || null;
-          
-          const needsUpdate = 
-            (!profile.first_name && firstName) ||
-            (!profile.last_name && lastName) ||
-            (!profile.avatar_url && googleAvatar) ||
-            (!profile.full_name && googleName);
-          
-          if (needsUpdate) {
+
+          if (!profile.first_name || !profile.avatar_url || !profile.full_name) {
             await supabase
               .from('profiles')
               .update({
@@ -171,67 +97,26 @@ const AuthCallback = () => {
                 last_name: profile.last_name || lastName,
                 full_name: profile.full_name || googleName,
                 avatar_url: profile.avatar_url || googleAvatar,
-                email: user.email || profile.email,
               })
               .eq('id', user.id);
-            
-            // Re-fetch profile to get updated data
-            const { data: updatedProfile } = await supabase
-              .from('profiles')
-              .select('id, first_name, last_name, full_name, wilaya, age, ksar, role, phone, created_at, email, avatar_url')
-              .eq('id', user.id)
-              .single();
-            
-            if (updatedProfile) {
-              profile = updatedProfile;
-            }
           }
         }
         
         // Upload pending avatar if exists
         await uploadPendingAvatar(user.id);
         
-        // Check if profile is valid (has email)
-        if (!profile || !profile.email) {
-          await supabase.auth.signOut();
-          localStorage.removeItem('googleSignUpInProgress');
-          const errorMessage = 'حدث خطأ أثناء التحقق من الحساب. يرجى المحاولة مرة أخرى.';
-          navigate('/auth/signin?error=check_failed&message=' + encodeURIComponent(errorMessage));
-          return;
-        }
-        
-        // Profile is valid, allow sign-in
+        // Clean up flags
         localStorage.removeItem('googleSignUpInProgress');
         localStorage.removeItem('googleSignInInProgress');
         
-        // 🔥 Send notifications to admin if this is a new user registration
-        // Send notification if profile was created within last 2 minutes (to catch new registrations)
-        const profileAge = profile.created_at ? 
-          (new Date().getTime() - new Date(profile.created_at).getTime()) : 
-          Infinity;
-        const isRecentProfile = profileAge < 2 * 60 * 1000; // 2 minutes
-        
-        const shouldNotify = isRecentProfile && !telegramNotified;
-        
-        if (shouldNotify) {
-          try {
-            // Use NotificationService which sends both Telegram and in-app notifications to admins
-            const { NotificationService } = await import('@/integrations/database/notificationService');
-            await NotificationService.notifyNewUserRegistration({
-              userId: user.id,
-              userRole: profile.role as 'driver' | 'passenger' | 'admin' | 'developer',
-              userName: profile.full_name || `${profile.first_name} ${profile.last_name}`.trim() || user.email || 'مستخدم',
-              userEmail: user.email || '',
-            });
-            
-            // Mark as notified to prevent duplicate notifications
-            localStorage.setItem('googleTelegramNotified', 'true');
-          } catch (notificationError) {
-            // Silent fail - don't block the sign-in process
-          }
+        // Check if onboarding is completed
+        if (!profile || !profile.onboarding_completed) {
+          // First time Google user or incomplete onboarding -> GO TO SLIDES!
+          navigate('/google-signup', { replace: true });
+        } else {
+          // Returning user with completed onboarding -> GO TO HOME!
+          navigate('/', { replace: true });
         }
-        
-        navigate('/');
       } catch (error) {
         await supabase.auth.signOut();
         localStorage.removeItem('googleSignUpInProgress');

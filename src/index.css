@@ -1,5 +1,5 @@
-/* Import Zain font */
-@import url('https://fonts.googleapis.com/css2?family=Zain:ital,wght@0,200;0,300;0,400;0,700;0,800;0,900;1,300;1,400&display=swap');
+/* Import Cairo font fallback (Main font is loaded in index.html for better performance) */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 
 /* stylelint-disable at-rule-no-unknown */
 @tailwind base;
@@ -135,7 +135,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Zain', sans-serif;
+    font-family: 'Cairo', sans-serif;
     /* Prevent text selection and pull-to-refresh on mobile */
     user-select: none;
     -webkit-user-select: none;
@@ -149,53 +149,47 @@
   }
 }
 
-/* Zain font classes */
-.zain-extralight {
-  font-family: "Zain", sans-serif;
-  font-weight: 200;
-  font-style: normal;
-}
-
-.zain-light {
-  font-family: "Zain", sans-serif;
+/* Cairo font classes */
+.cairo-light {
+  font-family: "Cairo", sans-serif;
   font-weight: 300;
   font-style: normal;
 }
 
-.zain-regular {
-  font-family: "Zain", sans-serif;
+.cairo-regular {
+  font-family: "Cairo", sans-serif;
   font-weight: 400;
   font-style: normal;
 }
 
-.zain-bold {
-  font-family: "Zain", sans-serif;
+.cairo-medium {
+  font-family: "Cairo", sans-serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.cairo-semibold {
+  font-family: "Cairo", sans-serif;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.cairo-bold {
+  font-family: "Cairo", sans-serif;
   font-weight: 700;
   font-style: normal;
 }
 
-.zain-extrabold {
-  font-family: "Zain", sans-serif;
+.cairo-extrabold {
+  font-family: "Cairo", sans-serif;
   font-weight: 800;
   font-style: normal;
 }
 
-.zain-black {
-  font-family: "Zain", sans-serif;
+.cairo-black {
+  font-family: "Cairo", sans-serif;
   font-weight: 900;
   font-style: normal;
-}
-
-.zain-light-italic {
-  font-family: "Zain", sans-serif;
-  font-weight: 300;
-  font-style: italic;
-}
-
-.zain-regular-italic {
-  font-family: "Zain", sans-serif;
-  font-weight: 400;
-  font-style: italic;
 }
 
 @layer utilities {

@@ -79,7 +79,7 @@ const AppOnboarding = () => {
             >
               تسجيل الدخول
             </Button>
-            
+          </div>
         )}
       </div>
     </div>

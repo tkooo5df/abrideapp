@@ -17,6 +17,14 @@ interface LocalUser {
   avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehicleYear?: number | null;
+  vehicleColor?: string | null;
+  vehiclePlate?: string | null;
+  vehicleSeats?: number | null;
+  vehicleCategory?: string | null;
+  isDriverActive?: boolean;
 }
 
 const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?: string): LocalUser | null => {
@@ -46,6 +54,14 @@ const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?
     avatarUrl: profile?.avatar_url ?? null,
     createdAt: profile?.created_at ?? new Date().toISOString(),
     updatedAt: profile?.updated_at ?? profile?.created_at ?? new Date().toISOString(),
+    vehicleBrand: profile?.vehicle_brand ?? null,
+    vehicleModel: profile?.vehicle_model ?? null,
+    vehicleYear: profile?.vehicle_year ?? null,
+    vehicleColor: profile?.vehicle_color ?? null,
+    vehiclePlate: profile?.vehicle_plate ?? null,
+    vehicleSeats: profile?.vehicle_seats ?? null,
+    vehicleCategory: profile?.vehicle_category ?? null,
+    isDriverActive: profile?.is_driver_active ?? false,
   };
 };
 

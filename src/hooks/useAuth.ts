@@ -19,15 +19,40 @@ interface Profile {
   ksar: string | null;
   date_of_birth: string | null;
   is_verified: boolean;
+  onboarding_completed?: boolean;
   created_at: string;
   updated_at: string;
 }
 
+// Helper function to read cached Supabase session synchronously from localStorage
+const getStoredSession = (): Session | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('sb-') || key.includes('supabase')) && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed) {
+            const sess = parsed.currentSession || (parsed.user ? parsed : null);
+            if (sess && sess.user) return sess as Session;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore parse errors
+  }
+  return null;
+};
+
 export const useAuth = () => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const initialSession = getStoredSession();
+  const [session, setSession] = useState<Session | null>(initialSession);
+  const [user, setUser] = useState<User | null>(initialSession?.user ?? null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(!initialSession);
 
   useEffect(() => {
     const getSession = async () => {
@@ -35,16 +60,20 @@ export const useAuth = () => {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          // If there's an auth error, clear the session
+          // If there's a severe auth error, clear session
           if (error.message.includes('Invalid Refresh Token') || error.message.includes('Refresh Token Not Found')) {
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
             setProfile(null);
           }
-        } else {
+        } else if (session) {
           setSession(session);
-          setUser(session?.user ?? null);
+          setUser(session.user ?? null);
+        } else {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
         }
       } catch (error) {
         setSession(null);
@@ -56,6 +85,23 @@ export const useAuth = () => {
     };
 
     getSession();
+
+    // Multi-tab Session Sync: Listen to localStorage changes across browser tabs
+    const handleStorageSync = (event: StorageEvent) => {
+      if (event.key && (event.key.startsWith('sb-') || event.key.includes('supabase')) && event.key.endsWith('-auth-token')) {
+        supabase.auth.getSession().then(({ data }) => {
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          if (!data.session) {
+            setProfile(null);
+          }
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageSync);
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -131,6 +177,9 @@ export const useAuth = () => {
     );
 
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorageSync);
+      }
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -140,7 +189,7 @@ export const useAuth = () => {
       // First, try to get the profile with all required fields
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, age, ksar, wilaya, commune, address, created_at, updated_at')
+        .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, age, ksar, wilaya, commune, address, created_at, updated_at, onboarding_completed')
         .eq('id', userId)
         .maybeSingle();
 
@@ -156,23 +205,6 @@ export const useAuth = () => {
         || metadata.role === 'developer')
         ? metadata.role
         : 'passenger';
-
-      // If profile exists but role mismatches metadata, update it to ensure UI reflects correct dashboard
-      if (data && normalizedRole && data.role !== normalizedRole) {
-        try {
-          const { data: updated, error: updateError } = await supabase
-            .from('profiles')
-            .update({ role: normalizedRole, updated_at: new Date().toISOString() })
-            .eq('id', userId)
-            .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, age, ksar, wilaya, commune, address, created_at, updated_at')
-            .maybeSingle();
-
-          if (!updateError && updated) {
-            return updated as Profile;
-          }
-        } catch (updateErr) {
-        }
-      }
 
       // If no profile exists, synthesize one from metadata without attempting a client-side insert
       if (!data) {
@@ -194,6 +226,7 @@ export const useAuth = () => {
             ksar: metadata.ksar || null,
             date_of_birth: metadata.date_of_birth || null,
             is_verified: false,
+            onboarding_completed: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -256,6 +289,17 @@ export const useAuth = () => {
       }
     } catch (error) {
       // نتابع التحديث حتى لو فشل فحص الحالة
+    }
+    
+    // If role is being updated, keep auth user metadata in sync as well
+    if (updates.role) {
+      try {
+        await supabase.auth.updateUser({
+          data: { role: updates.role }
+        });
+      } catch (metaErr) {
+        // Continue even if metadata update fails
+      }
     }
     
     const { data, error } = await supabase

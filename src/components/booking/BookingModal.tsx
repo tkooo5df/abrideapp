@@ -42,7 +42,6 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
   const [showBaridimobStep, setShowBaridimobStep] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isSubmittingRef = useRef(false);
 
   const user = isLocal ? localUser : supabaseUser;
   const isAuthenticated = user && user.id;
@@ -126,8 +125,6 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (isSubmittingRef.current) return;
 
     if (!isAuthenticated) {
       setShowLoginPrompt(true);
@@ -225,7 +222,6 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
       });
     } finally {
       setLoading(false);
-      isSubmittingRef.current = false;
     }
   };
 

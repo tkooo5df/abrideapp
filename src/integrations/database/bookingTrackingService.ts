@@ -401,12 +401,7 @@ export class BookingTrackingService {
       // Get booking - getBookingById now tries Supabase first
       let booking = await this.getBookingById(bookingId);
       if (!booking) {
-        // Try one more time after a short delay (in case of timing issues)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        booking = await this.getBookingById(bookingId);
-        if (!booking) {
-          return;
-        }
+        return;
       }
       switch (newStatus) {
         case BookingStatus.CONFIRMED:

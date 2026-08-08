@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+﻿import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { wilayas } from '@/data/wilayas';
 import type { Profile as BrowserProfile } from './browserDatabase';
@@ -60,7 +60,7 @@ const logMissingNotificationsTable = (error: any) => {
 };
 
 type ProfileRow = Tables<'profiles'>;
-type VehicleRow = Tables<'vehicles'>;
+
 type TripRow = Tables<'trips'>;
 type BookingRow = Tables<'bookings'>;
 type NotificationRow = Tables<'notifications'>;
@@ -82,18 +82,6 @@ interface ProfileUpdateData {
   ksar?: string | null;
   is_verified?: boolean | null;
   language?: string | null;
-  updated_at?: string;
-}
-
-interface VehicleUpdateData {
-  driver_id?: string | null;
-  make?: string;
-  model?: string;
-  year?: number | null;
-  color?: string | null;
-  license_plate?: string | null;
-  seats?: number | null;
-  is_active?: boolean | null;
   updated_at?: string;
 }
 
@@ -167,6 +155,18 @@ const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
     ksar: ksarValue,
     isVerified: row.is_verified ?? false,
     avatarUrl: row.avatar_url ?? undefined,
+    vehicleBrand: row.vehicle_brand ?? row.vehicleBrand ?? null,
+    vehicleModel: row.vehicle_model ?? row.vehicleModel ?? null,
+    vehicleYear: row.vehicle_year ?? row.vehicleYear ?? null,
+    vehicleColor: row.vehicle_color ?? row.vehicleColor ?? null,
+    vehiclePlate: row.vehicle_plate ?? row.vehiclePlate ?? null,
+    vehicleSeats: row.vehicle_seats ?? row.vehicleSeats ?? null,
+    vehicleCategory: row.vehicle_category ?? row.vehicleCategory ?? null,
+    vehicle_brand: row.vehicle_brand ?? row.vehicleBrand ?? null,
+    vehicle_model: row.vehicle_model ?? row.vehicleModel ?? null,
+    vehicle_year: row.vehicle_year ?? row.vehicleYear ?? null,
+    vehicle_color: row.vehicle_color ?? row.vehicleColor ?? null,
+    vehicle_plate: row.vehicle_plate ?? row.vehiclePlate ?? null,
     rating: 0,
     averageRating: 0,
     totalRatings: 0,
@@ -196,23 +196,6 @@ const toProfileInsert = (data: any): TablesInsert<'profiles'> => ({
   created_at: data.createdAt ?? new Date().toISOString(),
   updated_at: data.updatedAt ?? new Date().toISOString(),
 });
-
-const mapVehicle = (row: VehicleRow | null) => {
-  if (!row) return null;
-  return {
-    id: row.id,
-    driverId: row.driver_id ?? '',
-    make: row.make,
-    model: row.model,
-    year: row.year ?? new Date().getFullYear(),
-    color: row.color ?? 'غير محدد',
-    licensePlate: row.license_plate ?? 'غير محدد',
-    seats: row.seats ?? 0,
-    isActive: row.is_active ?? true,
-    createdAt: row.created_at ?? new Date().toISOString(),
-    updatedAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
-  };
-};
 
 interface DriverRatingSummary {
   averageRating: number;
@@ -431,6 +414,11 @@ const mapTrip = (row: TripRow | null) => {
     description: row.description ?? undefined,
     status: (row.status ?? 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
     isDemo: row.is_demo ?? false,
+    returnDate: (row as any).return_date ?? undefined,
+    returnTime: (row as any).return_time ?? undefined,
+    isBusTrip: (row as any).is_bus_trip ?? (row.total_seats > 30),
+    isReturnTrip: (row as any).is_return_trip ?? false,
+    parentTripId: (row as any).parent_trip_id ?? undefined,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
   };
@@ -527,10 +515,12 @@ const toTripInsert = (data: any): TablesInsert<'trips'> => {
   const fromKsar = fromWilayaId === 47 ? (data.fromKsar ?? null) : null;
   // Validate toKsar only if toWilayaId is 47 (غرداية)
   const toKsar = toWilayaId === 47 ? (data.toKsar ?? null) : null;
+
+  const isBus = totalSeats > 30 || data.isBusTrip === true;
   
-  const result = {
+  const result: any = {
     driver_id: data.driverId,
-    vehicle_id: data.vehicleId ?? null,
+    vehicle_id: (data.vehicleId && data.vehicleId !== 'profile_vehicle' && data.vehicleId !== 'null') ? data.vehicleId : null,
     from_wilaya_id: fromWilayaId,
     to_wilaya_id: toWilayaId,
     from_wilaya_name: data.fromWilayaName ?? getWilayaNameById(fromWilayaId),
@@ -549,6 +539,11 @@ const toTripInsert = (data: any): TablesInsert<'trips'> => {
     description: data.description ?? null,
     status: data.status ?? 'scheduled',
     is_demo: data.isDemo ?? false,
+    return_date: data.returnDate ?? null,
+    return_time: data.returnTime ?? null,
+    is_bus_trip: isBus,
+    is_return_trip: data.isReturnTrip ?? false,
+    parent_trip_id: data.parentTripId ?? null,
     created_at: data.createdAt ?? new Date().toISOString(),
     updated_at: data.updatedAt ?? new Date().toISOString(),
   };
@@ -576,7 +571,11 @@ const mapBooking = (row: BookingRow | null) => {
     notes: row.notes ?? undefined,
     pickupTime: row.pickup_time ?? '',
     specialRequests: row.special_requests ?? undefined,
+    receiptUrl: (row as any).receipt_url ?? undefined,
     status: (row.status ?? 'pending') as 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'rejected',
+    tripType: (row as any).trip_type ?? 'outbound',
+    returnDate: (row as any).return_date ?? undefined,
+    returnTime: (row as any).return_time ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     cancellationReason: (row as any).cancellation_reason ?? undefined,
@@ -607,7 +606,12 @@ const toBookingInsert = (data: any): TablesInsert<'bookings'> => {
     notes: data.notes ?? null,
     pickup_time: formattedPickupTime ?? null,
     special_requests: data.specialRequests ?? null,
+    receipt_url: data.receiptUrl ?? null,
     status: data.status ?? 'pending',
+    trip_type: data.tripType ?? 'outbound',
+    return_date: data.returnDate ?? null,
+    return_time: data.returnTime ?? null,
+    receipt_code: data.receiptCode ?? data.receipt_code ?? null,
     created_at: data.createdAt ?? new Date().toISOString(),
     updated_at: data.updatedAt ?? new Date().toISOString(),
   };
@@ -781,106 +785,186 @@ class SupabaseDatabaseService {
   }
 
   // Vehicle operations
-  static async createVehicle(data: any) {
-    try {
-      const payload = toVehicleInsert(data);
-      // Verify session before creating vehicle
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!session || !user) {
-        throw new Error('No active session. Please ensure you are logged in.');
-      }
-      
-      if (user.id !== data.driverId) {
-        throw new Error('User ID mismatch. Cannot create vehicle for different user.');
-      }
-      const { data: result, error } = await supabase
-        .from('vehicles')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        // Provide more descriptive error messages
-        let errorMessage = 'حدث خطأ أثناء إنشاء المركبة';
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        if (error.details) {
-          errorMessage += `: ${error.details}`;
-        }
-        if (error.code === '42501') {
-          errorMessage = 'خطأ في الصلاحيات: لا يمكن إنشاء المركبة. يرجى التحقق من أنك مسجل الدخول.';
-        }
-        
-        throw new Error(errorMessage);
-      }
-      return mapVehicle(result);
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  static async getVehicles(driverId?: string) {
-    let query = supabase.from('vehicles').select('*').order('created_at', { ascending: false });
-    if (driverId) {
-      query = query.eq('driver_id', driverId);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      throw error;
-    }
-
-    const mappedVehicles = (data ?? []).map(mapVehicle).filter(Boolean);
-    return mappedVehicles;
-  }
-
   static async getVehiclesByDriver(driverId: string) {
-    return this.getVehicles(driverId);
+    if (!driverId) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('driver_id', driverId);
+
+      if (!error && data && data.length > 0) {
+        return data.map((v: any) => ({
+          id: v.id,
+          driverId: v.driver_id,
+          make: v.make || v.brand || 'مركبة',
+          model: v.model || '',
+          year: v.year || '',
+          color: v.color || '',
+          licensePlate: v.license_plate || v.plate_number || '',
+          seats: v.seats || 4,
+          isActive: v.is_active ?? true,
+          is_active: v.is_active ?? true,
+          createdAt: v.created_at,
+          updatedAt: v.updated_at
+        }));
+      }
+
+      // If no vehicle in vehicles table, check driver profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', driverId)
+        .maybeSingle();
+
+      if (profile && (profile.vehicle_brand || profile.vehicle_model)) {
+        const { data: newV } = await supabase
+          .from('vehicles')
+          .insert({
+            driver_id: driverId,
+            make: profile.vehicle_brand || 'مركبة',
+            model: profile.vehicle_model || '',
+            year: profile.vehicle_year ? parseInt(String(profile.vehicle_year), 10) : null,
+            color: profile.vehicle_color || '',
+            license_plate: profile.vehicle_plate || '',
+            seats: profile.vehicle_seats ? parseInt(String(profile.vehicle_seats), 10) : 4,
+            is_active: true
+          })
+          .select('*')
+          .maybeSingle();
+
+        if (newV) {
+          return [{
+            id: newV.id,
+            driverId: newV.driver_id,
+            make: newV.make,
+            model: newV.model,
+            year: newV.year,
+            color: newV.color,
+            licensePlate: newV.license_plate,
+            seats: newV.seats,
+            isActive: newV.is_active,
+            is_active: newV.is_active,
+            createdAt: newV.created_at,
+            updatedAt: newV.updated_at
+          }];
+        }
+
+        return [{
+          id: 'profile_vehicle',
+          driverId: driverId,
+          make: profile.vehicle_brand || 'مركبة',
+          model: profile.vehicle_model || '',
+          year: profile.vehicle_year || '',
+          color: profile.vehicle_color || '',
+          licensePlate: profile.vehicle_plate || '',
+          seats: profile.vehicle_seats || 4,
+          isActive: true,
+          is_active: true
+        }];
+      }
+
+      return [];
+    } catch (err) {
+      return [];
+    }
   }
 
-  static async getVehicleById(id: string) {
-    const { data, error } = await supabase
+  static async createVehicle(data: any) {
+    const driverId = data.driverId || data.driver_id;
+    const make = data.make || data.brand;
+    const model = data.model || '';
+    const year = data.year ? parseInt(String(data.year), 10) : null;
+    const color = data.color || '';
+    const licensePlate = data.licensePlate || data.license_plate || '';
+    const seats = data.seats ? parseInt(String(data.seats), 10) : 4;
+
+    const { data: result, error } = await supabase
       .from('vehicles')
+      .insert({
+        driver_id: driverId,
+        make: make,
+        model: model,
+        year: year,
+        color: color,
+        license_plate: licensePlate,
+        seats: seats,
+        is_active: data.isActive ?? true
+      })
       .select('*')
-      .eq('id', id)
-      .maybeSingle();
+      .single();
 
     if (error) {
       throw error;
     }
 
-    return mapVehicle(data);
+    if (driverId) {
+      await supabase
+        .from('profiles')
+        .update({
+          vehicle_brand: make,
+          vehicle_model: model,
+          vehicle_year: year ? String(year) : null,
+          vehicle_color: color,
+          vehicle_plate: licensePlate,
+          vehicle_seats: seats ? String(seats) : '4'
+        })
+        .eq('id', driverId);
+    }
+
+    return {
+      id: result.id,
+      driverId: result.driver_id,
+      make: result.make,
+      model: result.model,
+      year: result.year,
+      color: result.color,
+      licensePlate: result.license_plate,
+      seats: result.seats,
+      isActive: result.is_active,
+      is_active: result.is_active
+    };
   }
 
-  static async updateVehicle(id: string, data: VehicleUpdateData) {
-    try {
-      const { data: result, error } = await supabase
-        .from('vehicles')
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+  static async updateVehicle(id: string, data: any) {
+    const payload: any = {};
+    if (data.make !== undefined || data.brand !== undefined) payload.make = data.make || data.brand;
+    if (data.model !== undefined) payload.model = data.model;
+    if (data.year !== undefined) payload.year = data.year ? parseInt(String(data.year), 10) : null;
+    if (data.color !== undefined) payload.color = data.color;
+    if (data.licensePlate !== undefined || data.license_plate !== undefined) {
+      payload.license_plate = data.licensePlate ?? data.license_plate;
+    }
+    if (data.seats !== undefined) payload.seats = data.seats ? parseInt(String(data.seats), 10) : null;
+    if (data.isActive !== undefined || data.is_active !== undefined) {
+      payload.is_active = data.isActive ?? data.is_active;
+    }
+    payload.updated_at = new Date().toISOString();
 
-      if (error) {
-        // Provide more descriptive error messages
-        let errorMessage = 'حدث خطأ أثناء تحديث المركبة';
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        if (error.details) {
-          errorMessage += `: ${error.details}`;
-        }
-        
-        throw new Error(errorMessage);
-      }
+    const { data: result, error } = await supabase
+      .from('vehicles')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single();
 
-      return mapVehicle(result);
-    } catch (error) {
+    if (error) {
       throw error;
     }
+
+    return {
+      id: result.id,
+      driverId: result.driver_id,
+      make: result.make,
+      model: result.model,
+      year: result.year,
+      color: result.color,
+      licensePlate: result.license_plate,
+      seats: result.seats,
+      isActive: result.is_active,
+      is_active: result.is_active
+    };
   }
 
   static async deleteVehicle(id: string) {
@@ -892,7 +976,6 @@ class SupabaseDatabaseService {
     if (error) {
       throw error;
     }
-
     return true;
   }
 
@@ -954,6 +1037,34 @@ class SupabaseDatabaseService {
       }
 
       const trip = mapTrip(result);
+
+      // If returnDate & returnTime are provided (Round Trip or Bus Trip), create the Return Trip leg automatically!
+      if (trip && data.returnDate && data.returnTime) {
+        try {
+          const returnPayload = toTripInsert({
+            driverId: data.driverId,
+            vehicleId: data.vehicleId,
+            fromWilayaId: data.toWilayaId,
+            toWilayaId: data.fromWilayaId,
+            fromWilayaName: data.toWilayaName,
+            toWilayaName: data.fromWilayaName,
+            fromKsar: data.toKsar,
+            toKsar: data.fromKsar,
+            departureDate: data.returnDate,
+            departureTime: data.returnTime,
+            pricePerSeat: data.pricePerSeat,
+            totalSeats: data.totalSeats,
+            description: `رحلة العودة (إياب) - مرجع: ${trip.id}`,
+            isBusTrip: trip.isBusTrip || trip.totalSeats > 30,
+            isReturnTrip: true,
+            parentTripId: trip.id
+          });
+
+          await supabase.from('trips').insert(returnPayload);
+        } catch (returnErr) {
+          console.warn('Could not auto-create return leg for trip:', returnErr);
+        }
+      }
 
       // Send notification to admin about new trip
       try {
@@ -1167,38 +1278,93 @@ class SupabaseDatabaseService {
     const vehicleIds = Array.from(new Set(
       trips
         .map((trip) => trip.vehicleId)
-        .filter((id) => id && id !== '' && id !== null && id !== undefined)
+        .filter((id) => id && id !== '' && id !== 'profile_vehicle' && id !== null && id !== undefined)
     ));
-    const [drivers, vehicles] = await Promise.all([
+
+    const [drivers, vehiclesRes] = await Promise.all([
       driverIds.length
         ? supabase
             .from('profiles')
             .select('*')
             .in('id', driverIds)
         : Promise.resolve({ data: [] as ProfileRow[], error: null }),
-      vehicleIds.length
+      driverIds.length
         ? supabase
             .from('vehicles')
             .select('*')
-            .in('id', vehicleIds)
-        : Promise.resolve({ data: [] as VehicleRow[], error: null }),
+            .in('driver_id', driverIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
     ]);
 
     if (drivers.error) {
       throw drivers.error;
     }
 
-    if (vehicles.error) {
-      throw vehicles.error;
+    const vehiclesByDriverMap = new Map<string, any>();
+    const vehiclesByIdMap = new Map<string, any>();
+    if (vehiclesRes.data) {
+      vehiclesRes.data.forEach((v: any) => {
+        const vehicleObj = {
+          id: v.id,
+          driverId: v.driver_id,
+          make: v.make || v.brand || 'مركبة',
+          model: v.model || '',
+          year: v.year || '',
+          color: v.color || '',
+          licensePlate: v.license_plate || v.plate_number || '',
+          seats: v.seats || 4,
+          category: v.category || 'عادية',
+          isActive: v.is_active ?? true,
+          createdAt: v.created_at,
+          updatedAt: v.updated_at
+        };
+        vehiclesByIdMap.set(v.id, vehicleObj);
+        if (v.driver_id && !vehiclesByDriverMap.has(v.driver_id)) {
+          vehiclesByDriverMap.set(v.driver_id, vehicleObj);
+        }
+      });
     }
+
     const driverMap = await buildProfileMapWithRatings(drivers.data ?? []);
-    const vehicleMap = new Map((vehicles.data ?? []).map((row) => [row.id, mapVehicle(row)]));
     // Use getWilayaNameById to get wilaya names from local data
     // This is more reliable than fetching from database and ensures consistency
     const enhancedTrips = trips.map((trip) => {
       // Ensure fromKsar is preserved in the enhanced trip
       const driver = trip.driverId ? driverMap.get(trip.driverId) ?? null : null;
-      const vehicle = trip.vehicleId ? vehicleMap.get(trip.vehicleId) ?? null : null;
+      let vehicle = null;
+      if (trip.vehicleId && vehiclesByIdMap.has(trip.vehicleId)) {
+        vehicle = vehiclesByIdMap.get(trip.vehicleId);
+      } else if (trip.driverId && vehiclesByDriverMap.has(trip.driverId)) {
+        vehicle = vehiclesByDriverMap.get(trip.driverId);
+      } else if (driver && (driver.vehicleBrand || driver.vehicle_brand || driver.vehicleModel || driver.vehicle_model)) {
+        vehicle = {
+          id: driver.id,
+          driverId: driver.id,
+          make: driver.vehicleBrand || driver.vehicle_brand || 'سيارة',
+          model: driver.vehicleModel || driver.vehicle_model || '',
+          year: driver.vehicleYear || driver.vehicle_year || '',
+          color: driver.vehicleColor || driver.vehicle_color || '',
+          licensePlate: driver.vehiclePlate || driver.vehicle_plate || '',
+          seats: driver.vehicleSeats || driver.vehicle_seats || 4,
+          category: driver.vehicleCategory || driver.vehicle_category || 'عادية',
+          isActive: true,
+          createdAt: driver.createdAt,
+          updatedAt: driver.updatedAt
+        };
+      } else {
+        vehicle = {
+          id: 'default',
+          driverId: trip.driverId,
+          make: 'سيارة',
+          model: 'خاصة',
+          year: '',
+          color: '',
+          licensePlate: '',
+          seats: 4,
+          category: 'عادية',
+          isActive: true
+        };
+      }
       
       // Get wilaya names using local function (more reliable)
       // Always use getWilayaNameById to ensure we get the correct name from local data
@@ -1465,32 +1631,99 @@ class SupabaseDatabaseService {
       throw new Error(error.message || 'فشل إنشاء الحجز');
     }
 
+    // Ensure receipt_code is saved persistently in Supabase
+    if (result && !result.receipt_code && result.id) {
+      const generatedCode = `ABR-${result.id}`;
+      try {
+        await supabase.from('bookings').update({ receipt_code: generatedCode }).eq('id', result.id);
+        result.receipt_code = generatedCode;
+      } catch (receiptErr) {
+        console.warn('Could not save receipt code:', receiptErr);
+      }
+    }
+
     // Update trip availability immediately for pending bookings as well
     // Seats should be reserved upon booking request in case the driver forgets to confirm
     if (result?.trip_id) {
       await this.updateTripAvailability(result.trip_id);
     }
 
-    // Send booking creation notifications
-    try {
-      const { NotificationService } = await import('./notificationService');
-      if (!result.driver_id) {
-        return mapBooking(result);
+    // If this is a Round-Trip booking, automatically reserve seats on the return leg trip as well!
+    if (result?.trip_id && (data.tripType === 'round_trip' || result.trip_type === 'round_trip')) {
+      try {
+        // Find current trip details
+        const { data: currentTrip } = await supabase
+          .from('trips')
+          .select('id, parent_trip_id')
+          .eq('id', result.trip_id)
+          .maybeSingle();
+
+        let returnTripId: string | null = null;
+
+        if (currentTrip) {
+          if (currentTrip.parent_trip_id) {
+            // Booked trip was the return leg; parent is the outbound trip
+            returnTripId = currentTrip.parent_trip_id;
+          } else {
+            // Booked trip was outbound; find child return leg
+            const { data: childReturnTrip } = await supabase
+              .from('trips')
+              .select('id')
+              .eq('parent_trip_id', currentTrip.id)
+              .maybeSingle();
+
+            if (childReturnTrip) {
+              returnTripId = childReturnTrip.id;
+            }
+          }
+        }
+
+        if (returnTripId) {
+          // Check if return booking already exists for this passenger and return trip
+          const { data: existingReturnBooking } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('trip_id', returnTripId)
+            .eq('passenger_id', result.passenger_id)
+            .maybeSingle();
+
+          if (!existingReturnBooking) {
+            // Insert return booking leg
+            const returnBookingPayload = toBookingInsert({
+              ...data,
+              tripId: returnTripId,
+              tripType: 'round_trip',
+              seatsBooked: data.seatsBooked || 1,
+              notes: `حجز العودة التلقائي للذهاب والإياب (مرجع الحجز: #${result.id})`
+            });
+
+            await supabase.from('bookings').insert(returnBookingPayload);
+          }
+
+          // Update available seats on the return leg trip immediately
+          await this.updateTripAvailability(returnTripId);
+        }
+      } catch (roundTripErr) {
+        console.warn('Could not process return trip booking deduction:', roundTripErr);
       }
-      
-      await NotificationService.notifyBookingCreated({
-        bookingId: result.id,
-        passengerId: result.passenger_id || '',
-        driverId: result.driver_id || '',
-        tripId: result.trip_id || '',
-        pickupLocation: result.pickup_location || '',
-        destinationLocation: result.destination_location || '',
-        seatsBooked: result.seats_booked || 1,
-        totalAmount: result.total_amount || 0,
-        paymentMethod: result.payment_method || 'cod'
-      });
-    } catch (notificationError) {
-      // Don't fail the booking creation if notifications fail
+    }
+
+    // Send booking creation notifications asynchronously in background (non-blocking)
+    if (result?.driver_id) {
+      import('./notificationService').then(({ NotificationService }) => {
+        NotificationService.notifyBookingCreated({
+          bookingId: result.id,
+          passengerId: result.passenger_id || '',
+          driverId: result.driver_id || '',
+          tripId: result.trip_id || '',
+          pickupLocation: result.pickup_location || '',
+          destinationLocation: result.destination_location || '',
+          seatsBooked: result.seats_booked || 1,
+          totalAmount: result.total_amount || 0,
+          paymentMethod: result.payment_method || 'cod',
+          receiptUrl: result.receipt_url
+        }).catch(err => console.error('Background notification dispatch error:', err));
+      }).catch(() => {});
     }
 
     return mapBooking(result);
@@ -1881,9 +2114,7 @@ class SupabaseDatabaseService {
     return Array.from(profileMap.values());
   }
 
-  static async getAllVehicles() {
-    return this.getVehicles();
-  }
+
 
   static async getAllBookings() {
     return this.getBookings();

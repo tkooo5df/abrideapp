@@ -1,4 +1,4 @@
-// Browser-based database using localStorage
+﻿// Browser-based database using localStorage
 // This replaces Prisma for browser compatibility
 
 export interface Profile {
@@ -73,6 +73,8 @@ export interface Booking {
   notes?: string;
   pickupTime: string;
   specialRequests?: string;
+  receiptUrl?: string;
+  receiptUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

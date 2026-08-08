@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,11 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { wilayas } from "@/data/wilayas";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const DriverOnboarding = () => {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Personal Info
@@ -108,39 +111,80 @@ const DriverOnboarding = () => {
 
   const handleDriverApplication = async () => {
     try {
-      // Create driver profile (this would typically be done during signup)
-      // For demo purposes, we'll create a notification for admins
+      // Get current user session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      if (sessionError || !session) {
+        alert("يجب عليك تسجيل الدخول أولاً.");
+        return;
+      }
+
+      const userId = session.user.id;
+
+      // Update user profile to driver and save personal info
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          role: 'driver',
+          first_name: formData.firstName || undefined,
+          last_name: formData.lastName || undefined,
+          phone: formData.phone || undefined,
+          wilaya: formData.wilaya || undefined,
+          commune: formData.commune || undefined,
+          address: formData.address || undefined
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        alert("حدث خطأ أثناء تحديث الملف الشخصي.");
+        return;
+      }
+
+      // Create vehicle
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .insert({
+          driver_id: userId,
+          make: formData.vehicleBrand,
+          model: formData.vehicleModel,
+          year: formData.vehicleYear ? parseInt(formData.vehicleYear) : null,
+          color: formData.vehicleColor,
+          license_plate: formData.plateNumber,
+          seats: formData.seats ? parseInt(formData.seats) : null,
+          is_active: true
+        });
+
+      if (vehicleError) {
+        console.error("Vehicle insert error:", vehicleError);
+        // Continue anyway to send notification
+      }
+
       // Get all admin users
       const { data: adminProfiles, error: adminError } = await supabase
         .from('profiles')
         .select('id')
         .eq('role', 'admin');
 
-      if (adminError) {
-        return;
-      }
+      if (!adminError && adminProfiles) {
+        // Create notifications for all admins about new driver application
+        const notifications = adminProfiles.map(admin => ({
+          user_id: admin.id,
+          type: 'system',
+          title: 'طلب سائق جديد',
+          message: `طلب انضمام جديد من ${formData.firstName} ${formData.lastName} - ${formData.vehicleBrand} ${formData.vehicleModel}`,
+          is_read: false
+        }));
 
-      // Create notifications for all admins about new driver application
-      const notifications = adminProfiles?.map(admin => ({
-        user_id: admin.id,
-        type: 'system' as const,
-        title: 'طلب سائق جديد',
-        message: `طلب انضمام جديد من ${formData.firstName} ${formData.lastName} - ${formData.vehicleBrand} ${formData.vehicleModel}`,
-        is_read: false
-      })) || [];
-
-      if (notifications.length > 0) {
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert(notifications);
-
-        if (notificationError) {
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
         }
       }
 
-      alert("تم إرسال طلبك بنجاح! سنتواصل معك قريباً.");
+      alert("تم إرسال طلبك وتحديث حسابك بنجاح! سنتواصل معك قريباً.");
+      navigate('/admin-dashboard'); // Or navigate('/')
     } catch (error) {
+      console.error(error);
       alert("حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.");
     }
   };
@@ -374,7 +418,7 @@ const DriverOnboarding = () => {
                         <SelectItem value="5">5 مقاعد</SelectItem>
                         <SelectItem value="6">6 مقاعد</SelectItem>
                         <SelectItem value="7">7 مقاعد</SelectItem>
-                        <SelectItem value="8">8 مقاعد (نقل)</SelectItem>
+                        <SelectItem value="8">8 مقاعد (نقل)</SelectItem><SelectItem value="15">15 مقعد (ميني باص)</SelectItem><SelectItem value="30">30 مقعد 🚌 (حافلة صغيرة)</SelectItem><SelectItem value="35">35 مقعد 🚌 (حافلة متوسطة)</SelectItem><SelectItem value="40">40 مقعد 🚌 (حافلة متوسطة)</SelectItem><SelectItem value="49">49 مقعد 🚌 (حافلة كبيرة)</SelectItem><SelectItem value="50">50 مقعد 🚌 (حافلة كبيرة جداً)</SelectItem><SelectItem value="60">60 مقعد 🚌 (حافلة سياحية)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

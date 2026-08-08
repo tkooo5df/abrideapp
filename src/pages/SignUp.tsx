@@ -362,6 +362,8 @@ const SignUp = () => {
             ksar,
             wilaya: wilayaName,
             commune: commune || null,
+            address,
+            onboarding_completed: false
           },
         },
       });
@@ -508,6 +510,7 @@ const SignUp = () => {
             vehicle_plate: null,
             vehicle_seats: null,
             vehicle_category: null,
+            onboarding_completed: false
           },
         },
       });

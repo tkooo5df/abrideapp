@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Qatar2022', 'sans-serif'],
+        sans: ['Cairo', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

@@ -621,12 +621,7 @@ const Header = () => {
                     >
                       إنشاء حساب
                     </Button>
-                    <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="outline" size="sm" className="w-full justify-start px-4 py-3 rounded-lg">
-                        <Settings className="h-4 w-4 mr-2" />
-                        لوحة الإدارة
-                      </Button>
-                    </Link>
+
                   </>
                 )}
               </div>

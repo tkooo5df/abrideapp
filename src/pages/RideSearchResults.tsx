@@ -1071,15 +1071,52 @@ const RideSearchResults = () => {
                         </div>
                       </div>
 
-                      {/* Date and Time */}
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{trip.departureDate}</span>
+                      {/* Date and Time (Outbound & Return) */}
+                      <div className="space-y-1.5 p-2.5 bg-muted/40 rounded-xl border">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="flex items-center gap-1.5 font-bold text-foreground">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            الذهاب: {trip.departureDate}
+                          </span>
+                          <span className="flex items-center gap-1 text-muted-foreground font-mono">
+                            <Clock className="h-3.5 w-3.5 text-primary" />
+                            {trip.departureTime}
+                          </span>
+                        </div>
+
+                        {(trip.returnDate || trip.return_date) && (
+                          <div className="flex items-center justify-between text-xs sm:text-sm pt-1 border-t border-border/50">
+                            <span className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+                              <Calendar className="h-4 w-4" />
+                              العودة: {trip.returnDate || trip.return_date}
+                            </span>
+                            {(trip.returnTime || trip.return_time) && (
+                              <span className="flex items-center gap-1 text-muted-foreground font-mono">
+                                <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                                {trip.returnTime || trip.return_time}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{trip.departureTime}</span>
+                      {/* Badges for Trip Type & Bus */}
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {(trip.isBusTrip || trip.totalSeats > 30) && (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-xs">
+                            🚌 حافلة ركاب ({trip.totalSeats} مقعد)
+                          </Badge>
+                        )}
+                        {(trip.returnDate || trip.return_date) && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 font-bold text-xs">
+                            🔄 متوفرة ذهاب وإياب
+                          </Badge>
+                        )}
+                        {trip.isReturnTrip && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950 dark:text-purple-300 font-bold text-xs">
+                            ⬅️ رحلة عودة (إياب)
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Vehicle Info */}
@@ -1087,7 +1124,7 @@ const RideSearchResults = () => {
                         <div className="flex items-center gap-2">
                           <Car className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
-                            {trip.vehicle.make} {trip.vehicle.model} ({trip.vehicle.year})
+                            {(trip.isBusTrip || trip.totalSeats > 30) ? '🚌' : ''} {trip.vehicle.make} {trip.vehicle.model} ({trip.vehicle.year})
                           </span>
                         </div>
                       )}

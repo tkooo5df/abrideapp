@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,8 @@ interface FormData {
 const GoogleSignUpSlides = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [role, setRole] = useState<'driver' | 'passenger' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasLoadedRef = useRef(false);
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     firstName: '',
@@ -75,19 +77,22 @@ const GoogleSignUpSlides = () => {
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading, updateProfile } = useAuth();
 
   const totalSteps = role === 'driver' ? 4 : 3;
 
   // Load existing profile data if available
   useEffect(() => {
     const loadProfileData = async () => {
+      if (loading || hasLoadedRef.current) return;
+      
       if (!user) {
         navigate('/auth/signin');
         return;
       }
 
       try {
+        hasLoadedRef.current = true;
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
@@ -121,8 +126,13 @@ const GoogleSignUpSlides = () => {
             category: profile.vehicle_category || '',
           });
 
-          // If role is already set, use it
-          if (profile.role) {
+          // If onboarding is not completed, ensure they start at Step 1 to choose role (Driver or Passenger)
+          if (!profile.onboarding_completed) {
+            if (profile.role !== 'driver') {
+              setRole(null);
+            }
+            setCurrentStep(1);
+          } else if (profile.role) {
             setRole(profile.role as 'driver' | 'passenger');
           }
         }
@@ -131,7 +141,7 @@ const GoogleSignUpSlides = () => {
     };
 
     loadProfileData();
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   const handleRoleSelect = (selectedRole: 'driver' | 'passenger') => {
     setRole(selectedRole);
@@ -185,7 +195,7 @@ const GoogleSignUpSlides = () => {
 
       // Update profile with onboarding data
       const updates: any = {
-        full_name: formData.fullName,
+        full_name: formData.fullName || `${formData.firstName} ${formData.lastName}`.trim(),
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
@@ -207,29 +217,69 @@ const GoogleSignUpSlides = () => {
       if (role === 'driver') {
         updates.vehicle_brand = formData.vehicleBrand;
         updates.vehicle_model = formData.vehicleModel;
-        updates.vehicle_year = formData.vehicleYear;
+        updates.vehicle_year = formData.vehicleYear ? parseInt(formData.vehicleYear, 10) : null;
         updates.vehicle_color = formData.vehicleColor;
         updates.vehicle_plate = formData.plateNumber;
-        updates.vehicle_seats = formData.seats;
+        updates.vehicle_seats = formData.seats ? parseInt(formData.seats, 10) : null;
         updates.vehicle_category = formData.category;
+        updates.is_driver_active = true;
       }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
+      const { error } = await updateProfile(updates);
 
-      if (error) throw error;
+      if (error) throw new Error(error);
+      
+      // Update metadata for onboarding completed and role synchronization
+      const { supabase } = await import('@/integrations/supabase/client');
+      await supabase.auth.updateUser({
+        data: { onboarding_completed: true, role: role }
+      });
+
+      if (role === 'driver') {
+        const { error: vehicleError } = await supabase
+          .from('vehicles')
+          .insert({
+            driver_id: user.id,
+            make: formData.vehicleBrand,
+            model: formData.vehicleModel,
+            year: formData.vehicleYear ? parseInt(formData.vehicleYear, 10) : null,
+            color: formData.vehicleColor,
+            license_plate: formData.plateNumber,
+            seats: formData.seats ? parseInt(formData.seats, 10) : null,
+            is_active: true
+          });
+          
+        if (vehicleError) {
+          console.error("Vehicle insert error:", vehicleError);
+        }
+      }
 
       toast({
         title: 'تم حفظ البيانات بنجاح',
         description: 'مرحباً بك في منصة abride!',
       });
 
+      // Send notifications to admin for the new user registration
+      const telegramNotified = localStorage.getItem('googleTelegramNotified');
+      if (!telegramNotified) {
+        try {
+          const { NotificationService } = await import('@/integrations/database/notificationService');
+          await NotificationService.notifyNewUserRegistration({
+            userId: user.id,
+            userRole: role as 'driver' | 'passenger',
+            userName: formData.fullName || `${formData.firstName} ${formData.lastName}`.trim() || user.email || 'مستخدم',
+            userEmail: user.email || '',
+          });
+          localStorage.setItem('googleTelegramNotified', 'true');
+        } catch (notificationError) {
+          console.error("Failed to send notification:", notificationError);
+        }
+      }
+
       // Clean up the flag
       localStorage.removeItem('googleSignUpInProgress');
-      
-      navigate('/');
+      // Use window.location.href to guarantee a full app reload with fresh auth context
+      window.location.href = '/';
     } catch (error) {
       toast({
         title: 'خطأ',

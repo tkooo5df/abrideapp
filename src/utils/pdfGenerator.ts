@@ -20,6 +20,8 @@ interface ReceiptData {
   tripType?: string;
   paymentMethod?: string;
   createdAt?: string;
+  returnDate?: string;
+  returnTime?: string;
 }
 
 export async function generateReceiptPdfBase64(data: ReceiptData): Promise<string> {
@@ -107,6 +109,10 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                   <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.fromLocation}</div>
                   <div style="font-size: 11px; font-weight: 600; color: #4B5A50; margin-top: 4px;">وصول إلى</div>
                 </div>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px;">
+                <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50;">تاريخ الإياب: <span style="font-size: 13px; font-weight: 700; color: #111827; margin-right: 4px;">${data.returnDate || 'غير محدد'}</span></div>
+                <div style="font-size: 11.5px; font-weight: 600; color: #4B5A50;">الوقت: <span style="font-size: 13px; font-weight: 700; color: #111827; margin-right: 4px; direction: ltr; display: inline-block;">${data.returnTime || 'غير محدد'}</span></div>
               </div>
               ` : ''}
 

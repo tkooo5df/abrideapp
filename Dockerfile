@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Remove devDependencies to reduce image size
-RUN npm prune --production
+RUN npm prune --production --legacy-peer-deps
 
 # Make diagnostic script executable
 RUN chmod +x diagnostic.sh

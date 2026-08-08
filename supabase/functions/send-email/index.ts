@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    const { to, subject, html, text } = await req.json();
+    const { to, subject, html, text, attachments } = await req.json();
 
     if (!to || !subject) {
       return respond(400, { error: 'Missing required fields: to, subject' });
@@ -72,6 +72,7 @@ Deno.serve(async (req: Request) => {
             subject,
             html: html || text,
             text: text || (html ? html.replace(/<[^>]*>/g, '') : ''),
+            attachments: attachments || undefined,
           }),
         });
 
