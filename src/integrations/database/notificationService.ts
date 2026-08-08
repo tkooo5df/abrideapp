@@ -2456,7 +2456,7 @@ export class NotificationService {
                     ✓ وصل حجز مؤكد (RECU)
                   </span>
                 </td>
-                <td align="left" style="font-family: 'Cairo', 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #047857;">
+                <td align="left" style="font-family: 'Cairo', 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; color: #047857; text-align: left; direction: ltr;">
                   ${receiptCode}
                 </td>
               </tr>
@@ -2467,10 +2467,9 @@ export class NotificationService {
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 12px 0;">
                 <tr>
                   <td align="center">
-                    <div style="font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px;">المبلغ الإجمالي</div>
-                    <div style="font-size: 38px; font-weight: 800; color: #065f46; line-height: 1.1;">
-                      ${typeof totalAmount === 'number' ? totalAmount.toFixed(0) : totalAmount}
-                      <span style="font-size: 20px; font-weight: 600; color: #047857; margin-right: 6px;">دج</span>
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 4px;">المبلغ الإجمالي</div>
+                    <div style="font-size: 38px; font-weight: 800; color: #065f46; line-height: 1.1; direction: rtl;">
+                      ${typeof totalAmount === 'number' ? totalAmount.toFixed(0) : totalAmount} <span style="font-size: 20px; font-weight: 600; color: #047857;">د.ج</span>
                     </div>
                   </td>
                 </tr>
@@ -2574,11 +2573,8 @@ export class NotificationService {
               </table>
 
               <!-- Brand Wordmark & Eyebrow -->
-              <div style="color: #ffffff; font-size: 28px; font-weight: 800; margin-bottom: 4px; direction: ltr;">
-                <span style="letter-spacing: 0px; font-family: 'Cairo', sans-serif;">أبريد</span>
-                <span style="letter-spacing: 1.5px;">ABRIDE</span>
-              </div>
-              <div style="color: #dcfce7; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;">ABRIDE PLATFORM • RECU SYSTEM</div>
+              <div style="color: #ffffff; font-size: 28px; font-weight: 800; margin-bottom: 2px;">أبريد ABRIDE</div>
+              <div style="color: #dcfce7; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;">ABRIDE PLATFORM • RECU SYSTEM</div>
 
             </td>
           </tr>
