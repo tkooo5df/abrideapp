@@ -2496,7 +2496,7 @@ export class NotificationService {
                   <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${fromLoc} إلى ${toLoc}</td>
                 </tr>
               ` : ''}
-              ${tripType && tripType.includes('إياب') && fromLoc && toLoc ? `
+              ${tripType && (tripType.includes('إياب') || tripType.toLowerCase().includes('round')) && fromLoc && toLoc ? `
                 <tr>
                   <td style="padding: 6px 0; color: #6b7280;">مسار العودة:</td>
                   <td style="padding: 6px 0; color: #111827; font-weight: 700;">من ${toLoc} إلى ${fromLoc}</td>
@@ -2512,15 +2512,6 @@ export class NotificationService {
                 <td style="padding: 6px 0; color: #6b7280;">طريقة الدفع:</td>
                 <td style="padding: 6px 0; color: #111827; font-weight: 600;">${paymentMethod}</td>
               </tr>
-              ${paymentMethod.includes('BaridiMob') || paymentMethod.includes('بريدي موب') ? `
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280; vertical-align: top;">رقم الحساب (RIP):</td>
-                <td style="padding: 6px 0; color: #15803d; font-weight: 700; direction: ltr; text-align: right;">
-                  00799999004064855725<br>
-                  <span style="font-size: 11px; font-weight: 500; color: #6b7280; direction: rtl; display: block;">يرجى تحويل المبلغ الإجمالي إلى هذا الحساب</span>
-                </td>
-              </tr>
-              ` : ''}
             </table>
 
           </td>

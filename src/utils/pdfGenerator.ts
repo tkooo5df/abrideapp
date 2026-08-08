@@ -99,7 +99,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
               </div>
 
               <!-- Return Trip (If Round Trip) -->
-              ${data.tripType && data.tripType.includes('إياب') ? `
+              ${data.tripType && (data.tripType.includes('إياب') || data.tripType.toLowerCase().includes('round')) ? `
               <div style="border-top: 1px dashed #e5e7eb; padding-top: 16px; display: flex; align-items: center; gap: 12px;">
                 <div style="flex: 1; text-align: center;">
                   <div style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1.2;">${data.toLocation}</div>
@@ -170,15 +170,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
                 </span>
               </div>
               
-              <!-- BaridiMob Notice -->
-              ${data.paymentMethod === 'BaridiMob' ? (
-              '<div style="font-size: 12px; font-weight: 700; color: #15803d; text-align: center; margin-bottom: 16px; background: #dcfce7; padding: 12px; border-radius: 10px; line-height: 1.5; box-sizing: border-box;">' +
-                'الرجاء إرسال المبلغ إلى الحساب البريدي (RIP):<br>' +
-                '<span style="direction: ltr; display: inline-block; font-family: monospace; margin-top: 6px; font-size: 14px;">00799999004064855725</span>' +
-              '</div>'
-              ) : ''}
-
-            </div>
+              </div>
 
             <!-- Footer -->
             <div style="padding: 0 24px 24px 24px; display: flex; align-items: center; gap: 12px; box-sizing: border-box;">
@@ -203,7 +195,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 3, // High resolution
+            scale: 5, // Max resolution
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -239,7 +231,8 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
           const targetHeight = (canvas.height * targetWidth) / canvas.width;
           const xPos = (pdfWidth - targetWidth) / 2;
 
-          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');
+          // Use 'NONE' for compression to prevent blurring
+          pdf.addImage(imgData, 'PNG', xPos, yPos, targetWidth, targetHeight, undefined, 'NONE');
           
           const dataUri = pdf.output('datauristring');
           const base64 = dataUri.split(',')[1];
