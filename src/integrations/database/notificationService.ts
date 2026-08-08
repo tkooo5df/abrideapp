@@ -724,7 +724,8 @@ export class NotificationService {
             destinationLocation: booking.destinationLocation,
             tripType: booking.tripType === 'round_trip' ? 'ذهاب وإياب' : 'ذهاب فقط',
             returnDate: trip?.returnDate || undefined,
-            returnTime: trip?.returnTime || undefined
+            returnTime: trip?.returnTime || undefined,
+            seatsBooked: booking.seatsBooked
           }
         };
         
@@ -2440,6 +2441,7 @@ export class NotificationService {
     const tripType = data.metadata?.tripType;
     const returnDate = data.metadata?.returnDate;
     const returnTime = data.metadata?.returnTime;
+    const seatsBooked = data.metadata?.seatsBooked;
 
     // Route Strip Motif: ● ⋯⋯⋯⋯ 🚗 ⋯⋯⋯⋯ 📍 (RTL: Dep right, Arr left)
     const routeStripHtml = isTripNotification ? `
@@ -2520,6 +2522,12 @@ export class NotificationService {
                   </td>
                 </tr>
                 ` : ''}
+              ` : ''}
+              ${seatsBooked ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">عدد المقاعد:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">${seatsBooked} ${seatsBooked > 1 ? 'مقاعد' : 'مقعد'}</td>
+                </tr>
               ` : ''}
               ${driverName ? `
                 <tr>
