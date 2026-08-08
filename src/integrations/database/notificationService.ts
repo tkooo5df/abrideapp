@@ -2574,7 +2574,10 @@ export class NotificationService {
               </table>
 
               <!-- Brand Wordmark & Eyebrow -->
-              <div style="color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: 1px; margin-bottom: 2px;">أبريد ABRIDE</div>
+              <div style="color: #ffffff; font-size: 28px; font-weight: 800; margin-bottom: 4px; direction: ltr;">
+                <span style="letter-spacing: 0px; font-family: 'Cairo', sans-serif;">أبريد</span>
+                <span style="letter-spacing: 1.5px;">ABRIDE</span>
+              </div>
               <div style="color: #dcfce7; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;">ABRIDE PLATFORM • RECU SYSTEM</div>
 
             </td>
