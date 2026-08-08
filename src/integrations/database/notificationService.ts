@@ -720,12 +720,14 @@ export class NotificationService {
             attachments: pdfAttachment,
             totalAmount: booking.totalAmount,
             paymentMethod: booking.paymentMethod,
+            fromLocation: booking.pickupLocation || trip?.fromWilayaName || 'غير محدد',
+            toLocation: booking.destinationLocation || trip?.toWilayaName || 'غير محدد',
             pickupLocation: booking.pickupLocation,
             destinationLocation: booking.destinationLocation,
-            tripType: booking.tripType === 'round_trip' ? 'ذهاب وإياب' : 'ذهاب فقط',
+            tripType: booking.tripType === 'round_trip' || booking.tripType === 'return' || booking.tripType === 'ذهاب وإياب' ? 'ذهاب وإياب' : 'ذهاب فقط',
             returnDate: trip?.returnDate || undefined,
             returnTime: trip?.returnTime || undefined,
-            seatsBooked: booking.seatsBooked
+            seatsBooked: booking.seatsBooked || 1
           }
         };
         
