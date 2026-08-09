@@ -194,12 +194,18 @@ export class NotificationService {
           await this.sendEmailNotification(data);
         } else if (data.type === NotificationType.BOOKING_CREATED) {
           // EXPLICITLY skip email for BOOKING_CREATED (only send for BOOKING_CONFIRMED)
-        } else if (!(isAdmin && isBookingNotification) && !skipEmail) {
-          // Don't send email to admin for booking/confirmation notifications or if skipEmail flag is set
-          await this.sendEmailNotification(data);
+        } else if (!skipEmail) {
+          // Don't send email if skipEmail flag is set (e.g. system monitoring alerts)
+          const result = await this.sendEmailNotification(data);
+          if (result && result.success === false) {
+            console.error('Failed to send email via sendEmailNotification:', result.error);
+          } else if (result && result.success === true) {
+            console.log('Email sent successfully via', result.provider);
+          }
         }
       } catch (emailError) {
         // Don't fail the notification creation if email fails
+        console.error('Exception in createNotification email dispatch:', emailError);
       }
 
       // Track notification metrics
