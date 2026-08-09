@@ -187,7 +187,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 4, // High resolution (reduced from 6 to fix email attachment limits)
+            scale: 2,
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -203,7 +203,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
           // Use JPEG to significantly reduce file size while maintaining visual quality
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const imgData = canvas.toDataURL('image/jpeg', 0.80);
           
           // Use standard A4
           const pdf = new jsPDF({
