@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { toast } from '@/hooks/use-toast';
+import { encodeId } from '@/utils/crypto';
 
 interface BookingReceiptModalProps {
   isOpen: boolean;
