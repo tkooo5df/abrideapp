@@ -146,7 +146,7 @@ const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
     // Also include snake_case versions for compatibility
     first_name: firstName,
     last_name: lastName,
-    fullName: fullName || row.email || '',
+    fullName: fullName || (row.email ? row.email.split('@')[0].replace(/[._-]/g, ' ') : ''),
     phone: row.phone ?? null,
     role: (row.role ?? 'passenger') as 'driver' | 'passenger' | 'admin' | 'developer',
     wilaya: row.wilaya ?? 'الجزائر',
