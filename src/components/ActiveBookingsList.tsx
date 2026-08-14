@@ -308,6 +308,7 @@ const ActiveBookingsList = ({ onCompleteBooking }: ActiveBookingsListProps) => {
                     driver_phone: booking.driver?.phone || 'غير متوفر',
                     price: booking.price || booking.trip?.price_per_seat || 1000,
                     seats: booking.seats_booked || 1,
+                    passenger_type: booking.passenger_type,
                     payment_method: booking.payment_method || 'نقداً',
                     created_at: booking.created_at || new Date().toISOString(),
                     driver_id: booking.driver_id

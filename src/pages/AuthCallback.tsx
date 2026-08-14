@@ -115,7 +115,13 @@ const AuthCallback = () => {
           navigate('/google-signup', { replace: true });
         } else {
           // Returning user with completed onboarding -> GO TO HOME!
-          navigate('/', { replace: true });
+          const returnTo = localStorage.getItem('returnTo');
+          if (returnTo) {
+            localStorage.removeItem('returnTo');
+            navigate(returnTo, { replace: true });
+          } else {
+            navigate('/', { replace: true });
+          }
         }
       } catch (error) {
         await supabase.auth.signOut();

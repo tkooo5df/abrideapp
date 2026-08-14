@@ -42,6 +42,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Contact from './pages/Contact';
 import TripTracking from './pages/TripTracking';
+import TripDetails from './pages/TripDetails';
 import DriversMap from './pages/DriversMap';
 import TripTrackingMapbox from './pages/TripTrackingMapbox';
 import DriversMapMapbox from './pages/DriversMapMapbox';
@@ -155,6 +156,7 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/ride-search" element={<RideSearchResults />} />
               <Route path="/current-trips" element={<CurrentTrips />} />
+              <Route path="/trip/:id" element={<TripDetails />} />
               <Route path="/best-offers" element={<BestOffers />} />
               <Route path="/booking-confirmation" element={<BookingConfirmation />} />
               <Route path="/booking-success" element={<BookingSuccess />} />

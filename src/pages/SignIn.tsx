@@ -81,7 +81,13 @@ const SignIn = () => {
     try {
       await signIn(email, password);
 
-      navigate('/');
+      const returnTo = localStorage.getItem('returnTo');
+      if (returnTo) {
+        localStorage.removeItem('returnTo');
+        navigate(returnTo);
+      } else {
+        navigate('/');
+      }
 
       toast({
         title: 'تم تسجيل الدخول بنجاح',

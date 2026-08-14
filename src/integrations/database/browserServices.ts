@@ -106,6 +106,7 @@ interface TripUpdateData {
 interface BookingUpdateData {
   pickup_location?: string;
   destination_location?: string;
+  passenger_type?: string | null;
   passenger_id?: string | null;
   driver_id?: string | null;
   trip_id?: string | null;
@@ -418,6 +419,9 @@ const mapTrip = (row: TripRow | null) => {
     returnTime: (row as any).return_time ?? undefined,
     isBusTrip: (row as any).is_bus_trip ?? (row.total_seats > 30),
     isReturnTrip: (row as any).is_return_trip ?? false,
+    is_round_trip: (row as any).is_round_trip ?? false,
+    return_price_per_seat: (row as any).return_price_per_seat ?? undefined,
+    return_available_seats: (row as any).return_available_seats ?? undefined,
     parentTripId: (row as any).parent_trip_id ?? undefined,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
@@ -541,6 +545,9 @@ const toTripInsert = (data: any): TablesInsert<'trips'> => {
     is_demo: data.isDemo ?? false,
     return_date: data.returnDate ?? null,
     return_time: data.returnTime ?? null,
+    is_round_trip: data.isRoundTrip ?? false,
+    return_price_per_seat: data.returnPrice && !isNaN(parseFloat(data.returnPrice)) ? parseFloat(data.returnPrice) : null,
+    return_available_seats: data.isRoundTrip ? availableSeats : null,
     is_bus_trip: isBus,
     is_return_trip: data.isReturnTrip ?? false,
     parent_trip_id: data.parentTripId ?? null,
@@ -569,6 +576,7 @@ const mapBooking = (row: BookingRow | null) => {
     totalAmount,
     paymentMethod: (row.payment_method ?? 'cod') as 'cod' | 'bpm',
     notes: row.notes ?? undefined,
+    passengerType: row.passenger_type ?? undefined,
     pickupTime: row.pickup_time ?? '',
     specialRequests: row.special_requests ?? undefined,
     receiptUrl: (row as any).receipt_url ?? undefined,
@@ -601,6 +609,7 @@ const toBookingInsert = (data: any): TablesInsert<'bookings'> => {
     driver_id: data.driverId ?? null,
     trip_id: data.tripId ?? null,
     seats_booked: data.seatsBooked ?? 1,
+    passenger_type: data.passengerType ?? null,
     total_amount: data.totalAmount ?? null,
     payment_method: data.paymentMethod ?? 'cod',
     notes: data.notes ?? null,

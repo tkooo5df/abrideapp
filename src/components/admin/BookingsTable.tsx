@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,7 @@ interface Booking {
   pickupTime?: string;
   specialRequests?: string;
   tripId?: string;
+  tripType?: string;
   passenger?: {
     id: string;
     fullName?: string;
@@ -87,6 +88,8 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [tripTypeFilter, setTripTypeFilter] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [updating, setUpdating] = useState<number | null>(null);
 
@@ -122,7 +125,26 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
 
     const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
 
-    const result = matchesSearch && matchesStatus;
+    // Date filtering
+    let matchesDate = true;
+    if (dateFilter !== 'all') {
+      const bookingDate = new Date(booking.createdAt);
+      const today = new Date();
+      if (dateFilter === 'today') {
+        matchesDate = bookingDate.toDateString() === today.toDateString();
+      } else if (dateFilter === 'week') {
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        matchesDate = bookingDate >= weekAgo;
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        matchesDate = bookingDate >= monthAgo;
+      }
+    }
+
+    // Trip type filtering
+    const matchesTripType = tripTypeFilter === 'all' || booking.tripType === tripTypeFilter;
+
+    const result = matchesSearch && matchesStatus && matchesDate && matchesTripType;
     
     // Debug logging for cancelled/rejected bookings
     if (booking.status === 'cancelled' || booking.status === 'rejected') {
@@ -237,8 +259,8 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           </div>
           
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="فلترة حسب الحالة" />
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="الحالة" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">جميع الحالات</SelectItem>
@@ -247,6 +269,30 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
               <SelectItem value="completed">مكتمل</SelectItem>
               <SelectItem value="cancelled">ملغي</SelectItem>
               <SelectItem value="rejected">مرفوض</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="الفترة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الأيام</SelectItem>
+              <SelectItem value="today">اليوم</SelectItem>
+              <SelectItem value="week">آخر 7 أيام</SelectItem>
+              <SelectItem value="month">آخر 30 يوم</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={tripTypeFilter} onValueChange={setTripTypeFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="نوع الرحلة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الرحلات</SelectItem>
+              <SelectItem value="outbound">ذهاب فقط</SelectItem>
+              <SelectItem value="return">إياب فقط</SelectItem>
+              <SelectItem value="round_trip">ذهاب وإياب</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -279,8 +325,17 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBookings.map((booking) => (
-                  <TableRow key={booking.id}>
+                filteredBookings.map((booking) => {
+                  const getRowBgColor = (type?: string) => {
+                    switch (type) {
+                      case 'outbound': return 'bg-orange-50/70 hover:bg-orange-100/70';
+                      case 'return': return 'bg-yellow-50/70 hover:bg-yellow-100/70';
+                      case 'round_trip': return 'bg-emerald-50/70 hover:bg-emerald-100/70';
+                      default: return '';
+                    }
+                  };
+                  return (
+                  <TableRow key={booking.id} className={getRowBgColor(booking.tripType)}>
                     <TableCell className="font-medium">#{booking.id}</TableCell>
                     <TableCell>
                       {format(new Date(booking.createdAt), 'yyyy-MM-dd HH:mm', { locale: ar })}
@@ -512,9 +567,10 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

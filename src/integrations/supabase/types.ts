@@ -58,6 +58,7 @@ export type Database = {
           pickup_location: string
           destination_location: string
           from_ksar: string | null
+          passenger_type: string | null
           passenger_id: string | null
           driver_id: string | null
           trip_id: string | null
@@ -76,6 +77,7 @@ export type Database = {
           pickup_location: string
           destination_location: string
           from_ksar?: string | null
+          passenger_type?: string | null
           passenger_id?: string | null
           driver_id?: string | null
           trip_id?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           pickup_location?: string
           destination_location?: string
           from_ksar?: string | null
+          passenger_type?: string | null
           passenger_id?: string | null
           driver_id?: string | null
           trip_id?: string | null
@@ -306,6 +309,55 @@ export type Database = {
         }
         Relationships: []
       }
+
+        reviews: {
+          Row: {
+            id: string
+            booking_id: string
+            reviewer_id: string
+            target_user_id: string
+            target_type: string
+            rating: number
+            comment: string | null
+            created_at: string
+          }
+          Insert: {
+            id?: string
+            booking_id: string
+            reviewer_id: string
+            target_user_id: string
+            target_type: string
+            rating: number
+            comment?: string | null
+            created_at?: string
+          }
+          Update: {
+            id?: string
+            booking_id?: string
+            reviewer_id?: string
+            target_user_id?: string
+            target_type?: string
+            rating?: number
+            comment?: string | null
+            created_at?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: "reviews_reviewer_id_fkey"
+              columns: ["reviewer_id"]
+              isOneToOne: false
+              referencedRelation: "profiles"
+              referencedColumns: ["id"]
+            },
+            {
+              foreignKeyName: "reviews_target_user_id_fkey"
+              columns: ["target_user_id"]
+              isOneToOne: false
+              referencedRelation: "profiles"
+              referencedColumns: ["id"]
+            }
+          ]
+        }
       trips: {
         Row: {
           id: string

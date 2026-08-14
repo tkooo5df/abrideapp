@@ -16,7 +16,7 @@ interface LocationPermissionRequestProps {
  */
 export const LocationPermissionRequest = ({ children }: LocationPermissionRequestProps) => {
   const { user, profile } = useAuth();
-  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt' | 'loading'>('loading');
+  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt' | 'loading'>('granted');
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
 
@@ -155,7 +155,8 @@ export const LocationPermissionRequest = ({ children }: LocationPermissionReques
       );
     };
 
-    requestLocationPermission();
+    // Disable automatic location request on startup
+    // requestLocationPermission();
   }, [user?.id, isAdmin, isDriver, isPassenger, hasRequested]);
 
   // Show permission request UI if needed

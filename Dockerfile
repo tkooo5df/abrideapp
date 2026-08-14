@@ -1,5 +1,5 @@
-# Use Node.js 18 alpine image
-FROM node:18-alpine
+# Use Node.js 20 alpine image
+FROM node:20-alpine
 
 # Force rebuild timestamp: 2025-01-05 12:00:00
 

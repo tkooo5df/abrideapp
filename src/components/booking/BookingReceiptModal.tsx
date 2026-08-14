@@ -52,6 +52,8 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
   const departureDate = booking.trip?.departureDate || booking.departureDate || '';
   const departureTime = booking.pickupTime || booking.trip?.departureTime || '';
   const seatsBooked = booking.seatsBooked || 1;
+  const passengerType = booking.passengerType;
+  const passengerTypeLabel = passengerType === 'family' ? 'عائلة' : (passengerType === 'youth' ? 'شباب' : '');
   const totalAmount = booking.totalAmount || 0;
   const vehicleInfo = `${booking.trip?.vehicle?.make || ''} ${booking.trip?.vehicle?.model || ''}`.trim() || 'مركبة معتمدة';
 
@@ -90,29 +92,31 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; }
-            body {
-              font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              padding: 24px;
-              direction: rtl;
-              background-color: #f8fafc;
-              color: #111827;
-              margin: 0;
-            }
-            .receipt-box {
-              max-width: 580px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              border-radius: 20px;
-              overflow: hidden;
-              border: 1px solid #e5e7eb;
-              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            }
-            .header-block {
-              background-color: #047857;
-              padding: 28px 24px 20px 24px;
-              text-align: center;
-            }
+              * { box-sizing: border-box; }
+              html, body { height: auto !important; }
+              body {
+                font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                padding: 24px;
+                direction: rtl;
+                background-color: #f8fafc;
+                color: #111827;
+                margin: 0;
+              }
+              .receipt-box {
+                max-width: 580px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 20px;
+                border: 1px solid #e5e7eb;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+              }
+              .header-block {
+                background-color: #047857;
+                padding: 28px 24px 20px 24px;
+                text-align: center;
+                border-top-left-radius: 19px;
+                border-top-right-radius: 19px;
+              }
             .logo-badge {
               background: rgba(255, 255, 255, 0.18);
               border: 1px solid rgba(255, 255, 255, 0.35);
@@ -138,16 +142,6 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
               text-transform: uppercase;
               margin-top: 2px;
             }
-            .route-strip {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 8px;
-              margin-top: 14px;
-              color: #ffffff;
-              font-size: 14px;
-            }
-            .dots { color: rgba(255,255,255,0.4); letter-spacing: 3px; font-size: 12px; }
             .content-area {
               padding: 24px;
             }
@@ -179,7 +173,6 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
               font-weight: 600;
               letter-spacing: 2px;
               color: #047857;
-              font-family: 'Cairo', sans-serif;
             }
             .amount-climax {
               text-align: center;
@@ -241,8 +234,10 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
               background-color: #f8fafc;
             }
             @media print {
-              body { padding: 0; background: #fff; }
-              .receipt-box { box-shadow: none; }
+              html, body { height: auto !important; padding: 0; margin: 0; background: #fff; overflow: visible !important; }
+              .receipt-box { box-shadow: none; border: none; overflow: visible !important; page-break-inside: avoid; }
+              .qr-section { page-break-inside: avoid; padding-bottom: 20px; }
+              .footer { padding-bottom: 40px; }
             }
           </style>
         </head>
@@ -289,7 +284,7 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
                   </div>
                   <div class="detail-item">
                     <div class="detail-label">المقاعد المجهزة</div>
-                    <div class="detail-val">${seatsBooked} مقعد</div>
+                    <div class="detail-val">${seatsBooked} مقعد ${passengerTypeLabel ? `(${passengerTypeLabel})` : ''}</div>
                   </div>
                 </div>
               </div>
@@ -313,7 +308,9 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
 
           <script>
             window.onload = function() {
-              window.print();
+              setTimeout(function() {
+                window.print();
+              }, 500);
             };
           </script>
         </body>
@@ -415,7 +412,7 @@ export const BookingReceiptModal: React.FC<BookingReceiptModalProps> = ({
               <div className="bg-white/80 border border-[#bbf7d0]/60 p-2.5 rounded-xl">
                 <span className="text-gray-500 text-[11px] block mb-0.5">المقاعد والنوع</span>
                 <span className="font-bold text-gray-900">
-                  {seatsBooked} مقعد ({booking.tripType === 'round_trip' ? 'ذهاب وإياب' : 'ذهاب فقط'})
+                  {seatsBooked} مقعد ({booking.tripType === 'round_trip' ? 'ذهاب وإياب' : 'ذهاب فقط'}) {passengerTypeLabel && `- ${passengerTypeLabel}`}
                 </span>
               </div>
             </div>

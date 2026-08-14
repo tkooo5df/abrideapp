@@ -183,6 +183,8 @@ const UserDashboard = () => {
   const [bookingsViewMode, setBookingsViewMode] = useState<'crm' | 'cards'>('crm');
   const [bookingSearchQuery, setBookingSearchQuery] = useState<string>('');
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all');
+  const [bookingDateFilter, setBookingDateFilter] = useState<string>('all');
+  const [bookingTripTypeFilter, setBookingTripTypeFilter] = useState<string>('all');
   const [tripForm, setTripForm] = useState({
     fromWilayaId: '',
     toWilayaId: '',
@@ -195,6 +197,7 @@ const UserDashboard = () => {
     returnTime: '',
     isRoundTrip: false,
     pricePerSeat: '',
+    returnPrice: '',
     totalSeats: '4',
     description: ''
   });
@@ -1339,6 +1342,8 @@ const UserDashboard = () => {
         departureTime: tripForm.departureTime,
         returnDate: tripForm.returnDate || undefined,
         returnTime: tripForm.returnTime || undefined,
+        isRoundTrip: tripForm.isRoundTrip,
+        returnPrice: tripForm.returnPrice || undefined,
         pricePerSeat: pricePerSeat,
         totalSeats: totalSeats,
         description: tripForm.description,
@@ -1368,6 +1373,10 @@ const UserDashboard = () => {
         vehicleId: "",
         departureDate: "",
         departureTime: "",
+        returnDate: "",
+        returnTime: "",
+        isRoundTrip: false,
+        returnPrice: "",
         pricePerSeat: "",
         totalSeats: "4",
         description: ""
@@ -3105,6 +3114,7 @@ const UserDashboard = () => {
                             <SelectItem value="15">15 مقعد (ميني باص)</SelectItem>
                             <SelectItem value="30">30 مقعد 🚌 (حافلة صغيرة)</SelectItem><SelectItem value="35">35 مقعد 🚌 (حافلة متوسطة)</SelectItem>
                             <SelectItem value="40">40 مقعد 🚌 (حافلة متوسطة)</SelectItem>
+                            <SelectItem value="47">47 مقعد 🚌 (حافلة كبيرة)</SelectItem>
                             <SelectItem value="49">49 مقعد 🚌 (حافلة كبيرة)</SelectItem><SelectItem value="50">50 مقعد 🚌 (حافلة كبيرة جدًا)</SelectItem>
                             <SelectItem value="60">60 مقعد 🚌 (حافلة سياحية)</SelectItem>
                           </SelectContent>
@@ -3149,6 +3159,18 @@ const UserDashboard = () => {
                               required={tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30}
                             />
                           </div>
+                        </div>
+                        <div className="space-y-1.5 pt-2">
+                          <label className="text-xs font-bold text-foreground">سعر الإياب للمقعد (دج) <span className="text-red-500">*</span></label>
+                          <input
+                            type="number"
+                            value={tripForm.returnPrice || ''}
+                            onChange={(e) => setTripForm(prev => ({ ...prev, returnPrice: e.target.value }))}
+                            className="w-full p-2 text-xs border rounded-xl"
+                            required={tripForm.isRoundTrip || parseInt(tripForm.totalSeats || '4') > 30}
+                            min="1"
+                            step="1"
+                          />
                         </div>
                       </div>
                     )}
@@ -4031,6 +4053,30 @@ const UserDashboard = () => {
                 >
                   ملغاة ({bookings.filter((b: any) => b.status === 'cancelled').length})
                 </Button>
+
+                <Select value={bookingDateFilter} onValueChange={setBookingDateFilter}>
+                  <SelectTrigger className="h-8 text-xs w-[120px] rounded-xl font-bold border-muted">
+                    <SelectValue placeholder="الفترة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الأيام</SelectItem>
+                    <SelectItem value="today">اليوم</SelectItem>
+                    <SelectItem value="week">آخر 7 أيام</SelectItem>
+                    <SelectItem value="month">آخر 30 يوم</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={bookingTripTypeFilter} onValueChange={setBookingTripTypeFilter}>
+                  <SelectTrigger className="h-8 text-xs w-[130px] rounded-xl font-bold border-muted">
+                    <SelectValue placeholder="نوع الرحلة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الرحلات</SelectItem>
+                    <SelectItem value="outbound">ذهاب فقط</SelectItem>
+                    <SelectItem value="return">إياب فقط</SelectItem>
+                    <SelectItem value="round_trip">ذهاب وإياب</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -4045,6 +4091,26 @@ const UserDashboard = () => {
                 if (bookingStatusFilter !== 'all' && booking.status !== bookingStatusFilter) {
                   return false;
                 }
+
+                const tripType = booking.tripType || booking.trip_type;
+                if (bookingTripTypeFilter !== 'all' && tripType !== bookingTripTypeFilter) {
+                  return false;
+                }
+
+                if (bookingDateFilter !== 'all') {
+                  const bookingDate = new Date(booking.createdAt || booking.created_at);
+                  const today = new Date();
+                  if (bookingDateFilter === 'today') {
+                    if (bookingDate.toDateString() !== today.toDateString()) return false;
+                  } else if (bookingDateFilter === 'week') {
+                    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    if (bookingDate < weekAgo) return false;
+                  } else if (bookingDateFilter === 'month') {
+                    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    if (bookingDate < monthAgo) return false;
+                  }
+                }
+
                 if (bookingSearchQuery.trim()) {
                   const q = bookingSearchQuery.toLowerCase().trim();
                   const receiptCode = (booking.receiptCode || booking.receipt_code || `ABR-${booking.id}`).toLowerCase();
@@ -4105,9 +4171,15 @@ const UserDashboard = () => {
                             {filteredBookings.map((booking: any) => {
                               const receiptCode = booking.receiptCode || booking.receipt_code || `ABR-${booking.id}`;
                               const statusInfo = getStatusBadge(booking.status);
+                              
+                              const tripType = booking.tripType || booking.trip_type;
+                              let bgClass = "hover:bg-muted/40";
+                              if (tripType === 'outbound') bgClass = "bg-orange-50/60 hover:bg-orange-100/60 dark:bg-orange-950/20 dark:hover:bg-orange-950/30";
+                              else if (tripType === 'return') bgClass = "bg-yellow-50/60 hover:bg-yellow-100/60 dark:bg-yellow-950/20 dark:hover:bg-yellow-950/30";
+                              else if (tripType === 'round_trip') bgClass = "bg-emerald-50/60 hover:bg-emerald-100/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30";
 
                               return (
-                                <TableRow key={booking.id} className="hover:bg-muted/40 transition-colors">
+                                <TableRow key={booking.id} className={`${bgClass} transition-colors`}>
                                   {/* Code / ID */}
                                   <TableCell className="font-medium whitespace-nowrap py-3">
                                     <div className="flex flex-col">

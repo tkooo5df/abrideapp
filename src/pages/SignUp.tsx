@@ -459,7 +459,13 @@ const SignUp = () => {
 
       // Redirect to home page immediately instead of onboarding
       setTimeout(() => {
-        navigate('/');
+        const returnTo = localStorage.getItem('returnTo');
+        if (returnTo) {
+          localStorage.removeItem('returnTo');
+          navigate(returnTo);
+        } else {
+          navigate('/');
+        }
       }, 1500);
     } catch (error: any) {
       const mappedError = mapSupabaseSignUpError(error);
@@ -596,7 +602,13 @@ const SignUp = () => {
 
       // Redirect to home page immediately instead of onboarding
       setTimeout(() => {
-        navigate('/');
+        const returnTo = localStorage.getItem('returnTo');
+        if (returnTo) {
+          localStorage.removeItem('returnTo');
+          navigate(returnTo);
+        } else {
+          navigate('/');
+        }
       }, 1500);
     } catch (error: any) {
       const mappedError = mapSupabaseSignUpError(error);

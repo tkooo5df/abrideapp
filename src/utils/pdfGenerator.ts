@@ -54,7 +54,7 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
 
       // Build the beautiful new ticket HTML template
       container.innerHTML = `
-        <div style="width: 440px; margin: 0 auto; background: #FBF8F2; font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; box-sizing: border-box;">
+        <div style="width: 440px; margin: 0 auto; background: #FBF8F2; font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; box-sizing: border-box; padding-bottom: 24px;">
 
           <!-- Valid Ticket Box -->
           <div style="background: white; border-radius: 26px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(22,36,29,0.04), 0 20px 40px -18px rgba(6,60,43,0.28); box-sizing: border-box;">
@@ -183,11 +183,21 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
 
       document.body.appendChild(container);
 
-      // Wait for fonts to load
+      // Wait for all images in the container to fully decode/load
+      const images = Array.from(container.getElementsByTagName('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      }));
+
+      // Wait a tiny bit more for layout flush
       setTimeout(async () => {
         try {
           const canvas = await html2canvas(container, {
-            scale: 2,
+            scale: 4, // Ultra-high resolution to make text look vector-like
             useCORS: true,
             logging: false,
             backgroundColor: '#FBF8F2', // match background
@@ -203,24 +213,21 @@ export async function generateReceiptPdfBase64(data: ReceiptData): Promise<strin
 
           // PDF generation - make it look like a nice ticket rather than a full A4 page
           // Use JPEG to significantly reduce file size while maintaining visual quality
-          const imgData = canvas.toDataURL('image/jpeg', 0.80);
+          const imgData = canvas.toDataURL('image/jpeg', 0.92);
           
-          // Use standard A4
+          // Use custom dimensions to perfectly fit the canvas, avoiding cutoff on long tickets
+          const pdfWidth = canvas.width;
+          const pdfHeight = canvas.height;
           const pdf = new jsPDF({
             orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
+            unit: 'px',
+            format: [pdfWidth, pdfHeight]
           });
 
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-          // Center the ticket horizontally and vertically
-          // Width of ticket in mm (A4 is 210mm wide)
-          const targetWidth = 210; 
-          const targetHeight = (canvas.height * targetWidth) / canvas.width;
-          const xPos = 0; // fill width edge-to-edge
-          const yPos = 0; // fill height edge-to-edge
+          const targetWidth = pdfWidth; 
+          const targetHeight = pdfHeight;
+          const xPos = 0; 
+          const yPos = 0;
 
           // Use 'FAST' compression to prevent massive base64 payloads
           pdf.addImage(imgData, 'JPEG', xPos, yPos, targetWidth, targetHeight, undefined, 'FAST');

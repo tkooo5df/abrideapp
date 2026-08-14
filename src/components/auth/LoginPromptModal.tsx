@@ -28,11 +28,13 @@ const LoginPromptModal = ({
 
   const handleLogin = () => {
     onClose();
+    localStorage.setItem('returnTo', window.location.pathname + window.location.search);
     navigate('/auth/signin');
   };
 
   const handleSignUp = () => {
     onClose();
+    localStorage.setItem('returnTo', window.location.pathname + window.location.search);
     navigate('/auth/signup');
   };
 

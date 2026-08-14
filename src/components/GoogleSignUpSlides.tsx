@@ -279,7 +279,13 @@ const GoogleSignUpSlides = () => {
       // Clean up the flag
       localStorage.removeItem('googleSignUpInProgress');
       // Use window.location.href to guarantee a full app reload with fresh auth context
-      window.location.href = '/';
+      const returnTo = localStorage.getItem('returnTo');
+      if (returnTo) {
+        localStorage.removeItem('returnTo');
+        window.location.href = returnTo;
+      } else {
+        window.location.href = '/';
+      }
     } catch (error) {
       toast({
         title: 'خطأ',

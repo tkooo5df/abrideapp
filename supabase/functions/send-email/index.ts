@@ -54,11 +54,60 @@ Deno.serve(async (req: Request) => {
       }
     );
 
+    const MAILRELAY_API_KEY = Deno.env.get('MAILRELAY_API_KEY');
+    const MAILRELAY_ACCOUNT = Deno.env.get('MAILRELAY_ACCOUNT');
+
+    if (MAILRELAY_API_KEY && MAILRELAY_ACCOUNT) {
+      try {
+        const mailrelayUrl = `https://${MAILRELAY_ACCOUNT}/api/v1/send_emails`;
+        
+        // Map standard attachment format to Mailrelay format
+        const mailrelayAttachments = attachments && Array.isArray(attachments) ? attachments.map(a => ({
+          file_name: a.filename,
+          content_type: a.contentType || a.content_type || 'application/pdf',
+          content: a.content
+        })) : undefined;
+
+        const mailrelayResponse = await fetch(mailrelayUrl, {
+          method: 'POST',
+          headers: {
+            'X-AUTH-TOKEN': MAILRELAY_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subject,
+            html: html || text,
+            mail: { to: [{ email: to }] },
+            from: {
+              email: Deno.env.get('FROM_EMAIL') || 'noreply@abride.online',
+              name: 'Abride Online',
+            },
+            attachments: mailrelayAttachments
+          }),
+        });
+
+        if (mailrelayResponse.ok) {
+          const result = await mailrelayResponse.json();
+          console.log(`[Mailrelay] Successfully sent email to ${to}. Attachments: ${!!mailrelayAttachments}`);
+          return respond(200, { success: true, provider: 'mailrelay', result });
+        }
+
+        const errorText = await mailrelayResponse.text();
+        console.error(`[Mailrelay] Failed to send email to ${to}: Status ${mailrelayResponse.status} - ${errorText}`);
+        diagnostics.push(`Mailrelay provider returned status ${mailrelayResponse.status}: ${errorText}`);
+      } catch (mailrelayError) {
+        console.error(`[Mailrelay] Exception: ${formatError(mailrelayError)}`);
+        diagnostics.push(`Mailrelay provider failed: ${formatError(mailrelayError)}`);
+      }
+    } else {
+      diagnostics.push('Mailrelay provider not configured.');
+    }
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (RESEND_API_KEY) {
       try {
         const fromEmail = 'noreply@abride.online';
-        const fromName = 'أبريد';
+        const fromName = 'Abride Online';
 
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -78,6 +127,7 @@ Deno.serve(async (req: Request) => {
 
         if (resendResponse.ok) {
           const result = await resendResponse.json();
+          console.log(`[Resend] Successfully sent email to ${to}. Attachments included: ${!!attachments}`);
           return respond(200, {
             success: true,
             provider: 'resend',
@@ -95,49 +145,14 @@ Deno.serve(async (req: Request) => {
         }
 
         const message = errorData?.message || errorText || 'Resend API error';
+        console.error(`[Resend] Failed to send email to ${to}: Status ${resendResponse.status} - ${message}`);
         diagnostics.push(`Resend provider returned status ${resendResponse.status}: ${message}`);
       } catch (resendError) {
+        console.error(`[Resend] Exception: ${formatError(resendError)}`);
         diagnostics.push(`Resend provider failed: ${formatError(resendError)}`);
       }
     } else {
       diagnostics.push('Resend provider not configured.');
-    }
-
-    const MAILRELAY_API_KEY = Deno.env.get('MAILRELAY_API_KEY');
-    const MAILRELAY_ACCOUNT = Deno.env.get('MAILRELAY_ACCOUNT');
-
-    if (MAILRELAY_API_KEY && MAILRELAY_ACCOUNT) {
-      try {
-        const mailrelayUrl = `https://${MAILRELAY_ACCOUNT}/api/v1/send_emails`;
-        const mailrelayResponse = await fetch(mailrelayUrl, {
-          method: 'POST',
-          headers: {
-            'X-AUTH-TOKEN': MAILRELAY_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            subject,
-            html: html || text,
-            mail: { to: [{ email: to }] },
-            from: {
-              email: Deno.env.get('FROM_EMAIL') || 'noreply@abride.online',
-              name: 'أبريد',
-            },
-          }),
-        });
-
-        if (mailrelayResponse.ok) {
-          const result = await mailrelayResponse.json();
-          return respond(200, { success: true, provider: 'mailrelay', result });
-        }
-
-        const errorText = await mailrelayResponse.text();
-        diagnostics.push(`Mailrelay provider returned status ${mailrelayResponse.status}: ${errorText}`);
-      } catch (mailrelayError) {
-        diagnostics.push(`Mailrelay provider failed: ${formatError(mailrelayError)}`);
-      }
-    } else {
-      diagnostics.push('Mailrelay provider not configured.');
     }
 
     diagnostics.push('Using Supabase Auth fallback provider.');

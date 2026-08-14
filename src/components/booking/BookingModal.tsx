@@ -13,7 +13,7 @@ import { BrowserDatabaseService } from '@/integrations/database/browserServices'
 import { useAuth } from '@/hooks/useAuth';
 import { useLocalAuth } from '@/hooks/useLocalAuth';
 import { useDatabase } from '@/hooks/useDatabase';
-import { Clock, MapPin, Users, Banknote, Car, User, Phone, Upload, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Clock, MapPin, Users, Banknote, Car, User, Phone, Upload, CheckCircle2, ArrowRight, Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import LoginPromptModal from '@/components/auth/LoginPromptModal';
 import ProfileCompletionModal from '@/components/booking/ProfileCompletionModal';
@@ -24,9 +24,10 @@ interface BookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialTripType?: 'outbound' | 'return' | 'round_trip';
 }
 
-const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) => {
+const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: BookingModalProps) => {
   const { user: supabaseUser, profile: authProfile } = useAuth();
   const { user: localUser } = useLocalAuth();
   const { isLocal } = useDatabase();
@@ -57,6 +58,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
     seatsBooked: '1',
     paymentMethod: 'cod',
     tripType: (trip.returnDate || isBusTrip) ? 'round_trip' : 'outbound',
+    passengerType: 'family',
     specialRequests: ''
   });
 
@@ -164,13 +166,27 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
 
     try {
       const seatsCount = parseInt(bookingForm.seatsBooked);
-      const isRoundTrip = bookingForm.tripType === 'round_trip';
-      const legMultiplier = isRoundTrip ? 2 : 1;
-      const totalAmount = seatsCount * trip.pricePerSeat * legMultiplier;
-
-      if (seatsCount > trip.availableSeats) {
-        throw new Error(`المقاعد المتاحة فقط ${trip.availableSeats}`);
+      const tripType = bookingForm.tripType;
+      
+      let pricePerSeat = 0;
+      if (tripType === 'outbound') {
+        pricePerSeat = trip.pricePerSeat;
+        if (seatsCount > trip.availableSeats) {
+          throw new Error(`المقاعد المتاحة للذهاب فقط ${trip.availableSeats}`);
+        }
+      } else if (tripType === 'return') {
+        pricePerSeat = trip.return_price_per_seat || trip.pricePerSeat;
+        if (seatsCount > (trip.return_available_seats ?? trip.availableSeats)) {
+          throw new Error(`المقاعد المتاحة للإياب فقط ${trip.return_available_seats ?? trip.availableSeats}`);
+        }
+      } else if (tripType === 'round_trip') {
+        pricePerSeat = trip.pricePerSeat + (trip.return_price_per_seat || trip.pricePerSeat);
+        if (seatsCount > trip.availableSeats || seatsCount > (trip.return_available_seats ?? trip.availableSeats)) {
+          throw new Error('لا توجد مقاعد كافية لرحلة الذهاب والإياب معاً');
+        }
       }
+      
+      const totalAmount = seatsCount * pricePerSeat;
 
       // If it's a bus, we don't ask the user for specific points. Just default to Wilaya names.
       const finalPickupPoint = isBusTrip ? 'محطة الحافلات' : bookingForm.pickupPoint;
@@ -192,6 +208,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
         pickupPoint: finalPickupPoint,
         destinationPoint: finalDestPoint,
         seatsBooked: seatsCount,
+        passengerType: seatsCount > 1 ? bookingForm.passengerType : null,
         totalAmount,
         paymentMethod: bookingForm.paymentMethod as 'cod' | 'bpm',
         tripType: bookingForm.tripType,
@@ -241,7 +258,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
   const totalCost = seats * trip.pricePerSeat * (isRound ? 2 : 1);
 
   // Baridimob system RIP placeholder (or can be fetched from DB)
-  const systemRip = "007 99999 0021356478 91"; 
+  const systemRip = "00799999002135647891"; 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
@@ -401,6 +418,22 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
                     </SelectContent>
                   </Select>
                 </div>
+
+                {parseInt(bookingForm.seatsBooked) > 1 && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <Label className="font-bold text-sm">نوع المجموعة *</Label>
+                    <Select value={bookingForm.passengerType} onValueChange={(v) => setBookingForm(prev => ({ ...prev, passengerType: v }))}>
+                      <SelectTrigger className="h-11 bg-muted/30">
+                        <SelectValue placeholder="اختر نوع المجموعة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="family">عائلة</SelectItem>
+                        <SelectItem value="youth">شباب</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label className="font-bold text-sm">طريقة الدفع *</Label>
                   <Select value={bookingForm.paymentMethod} onValueChange={(v) => setBookingForm(prev => ({ ...prev, paymentMethod: v }))}>
@@ -408,12 +441,34 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
                       <SelectValue placeholder="اختر طريقة الدفع" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cod">نقداً عند الوصول</SelectItem>
+                      <SelectItem value="cod">الدفع عند محل لينداتكس 16</SelectItem>
                       <SelectItem value="bpm">بريدي موب (BaridiMob)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+                {bookingForm.paymentMethod === 'cod' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-sm space-y-2">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-bold">موقع الدفع (محل لينداتكس 16)</p>
+                        <p className="text-blue-700 mt-1 leading-relaxed">
+                          يرجى التوجه إلى محل لينداتكس 16 لدفع مبلغ الحجز وتأكيده.
+                        </p>
+                      </div>
+                    </div>
+                    <a 
+                      href="https://maps.app.goo.gl/RG5mehQkYjbbjS4W7" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors px-3 py-2 rounded-lg font-semibold mt-2 w-full justify-center"
+                    >
+                      فتح الموقع على خرائط جوجل <MapPin className="w-4 h-4" />
+                    </a>
+                  </div>
+                )}
 
               <div className="space-y-2">
                 <Label className="font-bold text-sm">طلبات خاصة (اختياري)</Label>
@@ -443,7 +498,11 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
                   إلغاء
                 </Button>
                 <Button type="submit" disabled={loading} className="w-2/3 h-12 font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-lg shadow-lg hover:shadow-emerald-600/25 transition-all">
-                  {loading ? "جاري المعالجة..." : bookingForm.paymentMethod === 'bpm' ? (
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" /> جاري المعالجة...
+                    </span>
+                  ) : bookingForm.paymentMethod === 'bpm' ? (
                     <span className="flex items-center justify-center gap-2">
                       متابعة الدفع <ArrowRight className="w-5 h-5 rotate-180" />
                     </span>
@@ -466,9 +525,22 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
               </div>
 
               <div className="bg-muted/30 p-5 rounded-2xl border-2 border-dashed text-center">
-                <div className="text-sm text-muted-foreground font-medium mb-1">رقم الـ RIP:</div>
-                <div className="text-2xl font-black tracking-widest text-foreground select-all font-mono py-2">{systemRip}</div>
-                <div className="text-sm font-medium text-muted-foreground mt-2">منصة أبريد</div>
+                <div className="text-sm text-muted-foreground font-medium mb-2">رقم الـ RIP:</div>
+                <div 
+                  className="flex items-center justify-center gap-3 bg-background p-3 rounded-xl border cursor-pointer hover:bg-secondary/50 transition-colors mx-auto w-fit"
+                  onClick={() => {
+                    navigator.clipboard.writeText(systemRip);
+                    toast({
+                      title: "تم النسخ",
+                      description: "تم نسخ رقم بريدي موب بنجاح",
+                    });
+                  }}
+                  title="نسخ الرقم"
+                >
+                  <div className="text-xl md:text-2xl font-black tracking-[0.15em] text-foreground font-mono select-all" dir="ltr">{systemRip}</div>
+                  <Copy className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="text-sm font-medium text-muted-foreground mt-3">منصة أبريد</div>
               </div>
 
               <div className="space-y-3">
@@ -534,7 +606,11 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess }: BookingModalProps) =
                   disabled={loading || !receiptImage} 
                   className="w-2/3 h-12 font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-lg shadow-lg transition-all"
                 >
-                  {loading ? "جاري الإرسال..." : "تم الإرسال، احجز"}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" /> جاري الإرسال...
+                    </span>
+                  ) : "تم الإرسال، احجز"}
                 </Button>
               </div>
 

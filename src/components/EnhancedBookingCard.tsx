@@ -17,6 +17,7 @@ interface BookingCardProps {
     seats: number;
     payment_method: string;
     created_at: string;
+    passenger_type?: string | null;
     driver_id?: string;
     driver_rating?: number;
     driver_average_rating?: number;
@@ -136,9 +137,16 @@ export default function EnhancedBookingCard({ booking, onCompleteTrip, onViewDet
             <Car className="h-4 w-4 text-muted-foreground" />
             <span>سيارة عادة</span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span>{booking.seats}/4 مقاعد</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span>{booking.seats}/4 مقاعد</span>
+            </div>
+            {booking.passenger_type && booking.seats > 1 && (
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-slate-100 text-slate-700 border-slate-200">
+                {booking.passenger_type === 'family' ? 'عائلة' : booking.passenger_type === 'youth' ? 'شباب' : booking.passenger_type}
+              </Badge>
+            )}
           </div>
         </div>
 

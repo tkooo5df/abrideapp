@@ -11,7 +11,8 @@ import {
   Users,
   Banknote,
   Filter,
-  RefreshCcw
+  RefreshCcw,
+  Share2
 } from "lucide-react";
 import { BrowserDatabaseService } from "@/integrations/database/browserServices";
 import { toast } from "@/hooks/use-toast";
@@ -433,22 +434,59 @@ const CurrentTrips = () => {
                           </div>
                         </div>
 
-                        <Button 
-                          className={`w-full h-9 text-sm transition-all duration-300 ${
-                            isFullyBooked 
-                              ? 'bg-muted hover:bg-muted' 
-                              : 'hover:bg-primary/90'
-                          }`}
-                          disabled={isFullyBooked}
-                          onClick={() => {
-                            if (!isFullyBooked) {
-                              setSelectedTrip(trip);
-                              setIsBookingModalOpen(true);
-                            }
-                          }}
-                        >
-                          {isFullyBooked ? 'محجوز' : 'احجز الآن'}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            className={`flex-1 h-9 text-sm transition-all duration-300 ${
+                              isFullyBooked 
+                                ? 'bg-muted hover:bg-muted' 
+                                : 'hover:bg-primary/90'
+                            }`}
+                            disabled={isFullyBooked}
+                            onClick={() => {
+                              if (!isFullyBooked) {
+                                setSelectedTrip(trip);
+                                setIsBookingModalOpen(true);
+                              }
+                            }}
+                          >
+                            {isFullyBooked ? 'محجوز' : 'احجز الآن'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-9 px-3 flex-shrink-0"
+                            title="مشاركة رابط الرحلة"
+                            onClick={() => {
+                              const driverNameStr = trip.driver?.fullName || 'سائق';
+                              const carStr = `${trip.vehicle?.make || ''} ${trip.vehicle?.model || ''}`.trim();
+                              const pickupStr = trip.fromWilayaName || trip.fromWilayaId?.toString() || '';
+                              const destStr = trip.toWilayaName || trip.toWilayaId?.toString() || '';
+                              
+                              const shareUrl = `${window.location.origin}/booking-form?pickup=${encodeURIComponent(pickupStr)}&destination=${encodeURIComponent(destStr)}&driverName=${encodeURIComponent(driverNameStr)}&driverCar=${encodeURIComponent(carStr)}&driverId=${trip.driverId}&tripId=${trip.id}&price=${trip.pricePerSeat}&date=${trip.departureDate}&time=${trip.departureTime}&passengers=1`;
+                              
+                              if (navigator.share) {
+                                navigator.share({
+                                  title: 'حجز رحلة على أبريد',
+                                  text: `احجز مع السائق ${driverNameStr} من ${pickupStr} إلى ${destStr}`,
+                                  url: shareUrl
+                                }).catch(() => {
+                                  navigator.clipboard.writeText(shareUrl);
+                                  toast({
+                                    title: "تم النسخ",
+                                    description: "تم نسخ رابط الرحلة بنجاح"
+                                  });
+                                });
+                              } else {
+                                navigator.clipboard.writeText(shareUrl);
+                                toast({
+                                  title: "تم النسخ",
+                                  description: "تم نسخ رابط الرحلة بنجاح"
+                                });
+                              }
+                            }}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>

@@ -2361,7 +2361,7 @@ export class NotificationService {
       }
 
       // Create HTML email template
-      const htmlEmail = this.createEmailTemplate(data);
+      const htmlEmail = this.createEmailTemplate(data, user.full_name || user.fullName);
       // Call Edge Function to send email
       const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: 'POST',
@@ -2417,7 +2417,7 @@ export class NotificationService {
   }
 
   // Create HTML email template following Abride Official Brand System
-  private static createEmailTemplate(data: NotificationData): string {
+  private static createEmailTemplate(data: NotificationData, userName?: string): string {
     const isReceipt = data.type === NotificationType.BOOKING_CONFIRMED || (data.metadata && data.metadata.receiptUrl);
     
     const isTripNotification = (data.category === NotificationCategory.BOOKING || 
@@ -2599,6 +2599,7 @@ export class NotificationService {
 
               <div style="background-color: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 20px; border-right: 4px solid #047857; direction: rtl; text-align: right;">
                 <p style="margin: 0; font-size: 15px; color: #4b5563; line-height: 1.8;">
+                  ${userName ? `<strong>مرحباً ${userName}،</strong><br><br>` : ''}
                   ${data.message}
                 </p>
               </div>
