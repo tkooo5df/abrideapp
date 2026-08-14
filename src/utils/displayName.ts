@@ -33,7 +33,7 @@ const extractEmailHandle = (email?: string | null): string => {
   }
 
   const [handle] = email.split('@');
-  return handle?.trim() ?? '';
+  return handle?.replace(/[._-]/g, ' ').trim() ?? '';
 };
 
 const getNestedRecord = (source: CandidateInput, key: string): DisplaySource => {
@@ -113,7 +113,11 @@ export const getDisplayName = (
   for (const source of sources) {
     const candidates = collectCandidates(source);
     if (candidates.length > 0) {
-      return candidates[0];
+      let finalName = candidates[0];
+      if (finalName.includes('@')) {
+        finalName = extractEmailHandle(finalName);
+      }
+      return finalName;
     }
   }
 

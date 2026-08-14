@@ -116,10 +116,10 @@ export const isProfileComplete = (profile: any): boolean => {
 };
 
 export const getMissingProfileFields = (profile: any): string[] => {
-  if (!profile) return ['fullName', 'phone', 'wilaya', 'commune'];
+  if (!profile) return ['fullName', 'phone', 'wilaya'];
   
   const missing: string[] = [];
-  const fields = ['fullName', 'phone', 'wilaya', 'commune'];
+  const fields = ['fullName', 'phone', 'wilaya'];
   
   fields.forEach(field => {
     const value = profile[field] || profile[camelToSnake(field)];
@@ -134,3 +134,4 @@ export const getMissingProfileFields = (profile: any): string[] => {
 function camelToSnake(str: string): string {
   return str.replace(/([A-Z])/g, '_$1').toLowerCase();
 }
+
