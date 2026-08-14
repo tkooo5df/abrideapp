@@ -228,6 +228,23 @@ const BookingWizard = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {parseInt(bookingData.passengers) > 1 && (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  <Label htmlFor="passengerType">نوع المجموعة</Label>
+                  <Select value={(bookingData as any).passengerType || 'family'} onValueChange={(value) => 
+                    setBookingData(prev => ({ ...prev, passengerType: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر نوع المجموعة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="family">عائلة</SelectItem>
+                      <SelectItem value="youth">شباب</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         );

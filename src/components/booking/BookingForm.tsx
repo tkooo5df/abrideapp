@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   User,
   Phone,
@@ -64,7 +65,8 @@ const BookingForm = () => {
     specialRequests: "",
     paymentMethod: "cash",
     pickupPoint: "",
-    destinationPoint: ""
+    destinationPoint: "",
+    passengerType: "family"
   });
 
   const [loading, setLoading] = useState(false);
@@ -123,6 +125,7 @@ const BookingForm = () => {
         driverId: driverId,
         tripId: tripId || '1', // Fallback if no tripId provided
         seatsBooked: parseInt(passengers),
+        passengerType: parseInt(passengers) > 1 ? formData.passengerType : null,
         totalAmount: parseFloat(price),
         paymentMethod: formData.paymentMethod === "cash" ? "cod" : "bpm" as 'cod' | 'bpm',
         notes: `${formData.firstName} ${formData.lastName} - ${formData.phone}`,
@@ -328,6 +331,21 @@ const BookingForm = () => {
                     />
                   </div>
                 </div>
+
+                {parseInt(passengers) > 1 && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <Label className="font-bold text-sm">نوع المجموعة *</Label>
+                    <Select value={formData.passengerType} onValueChange={(v) => handleInputChange("passengerType", v)}>
+                      <SelectTrigger className="h-12 bg-background">
+                        <SelectValue placeholder="اختر نوع المجموعة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="family">عائلة</SelectItem>
+                        <SelectItem value="youth">شباب</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Payment Method */}
                 <div className="space-y-3">
