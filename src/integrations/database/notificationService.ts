@@ -2426,7 +2426,7 @@ export class NotificationService {
     
     const bookingId = data.relatedId || (data.metadata && data.metadata.bookingId) || '';
     const receiptCode = bookingId ? `ABR-${bookingId}` : 'ABRIDE';
-    let actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
+    let actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (isReceipt && bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
     if (actionUrl && actionUrl.startsWith('/')) { actionUrl = `https://abride.online${actionUrl}`; }
 
     const totalAmount = data.metadata?.totalAmount;
@@ -2538,12 +2538,13 @@ export class NotificationService {
     ` : '';
 
     // Action Button
+    const actionText = data.metadata?.actionText || (isReceipt ? 'عرض الوصل والـ QR Code الموثق ←' : 'فتح في التطبيق ←');
     const actionButtonHtml = actionUrl ? `
       <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 12px 0;">
         <tr>
           <td align="center">
             <a href="${actionUrl}" target="_blank" style="background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px; padding: 14px 32px; display: inline-block; box-shadow: 0 4px 12px rgba(4, 120, 87, 0.25);">
-              عرض الوصل والـ QR Code الموثق ←
+              ${actionText}
             </a>
           </td>
         </tr>
