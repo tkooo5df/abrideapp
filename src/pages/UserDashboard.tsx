@@ -183,6 +183,7 @@ const UserDashboard = () => {
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
   const [showBookingDetailsModal, setShowBookingDetailsModal] = useState<boolean>(false);
+  const [showQRScanner, setShowQRScanner] = useState<boolean>(false);
   const [bookingsViewMode, setBookingsViewMode] = useState<'crm' | 'cards'>('crm');
   const [bookingSearchQuery, setBookingSearchQuery] = useState<string>('');
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all');
@@ -607,100 +608,55 @@ const UserDashboard = () => {
   };
 
   // Fetch trips based on user role and selected day
-  const fetchTrips = async () => {
-    try {
-      if (selectedDayTab === 'all') {
-        // Show all trips regardless of date
-        if (userProfile?.role === 'driver') {
-          // Drivers see only their own trips
-          const data = await BrowserDatabaseService.getTripsWithDetails(user?.id);
-          setTrips(data || []);
-        } else if (userProfile?.role === 'passenger') {
-          // Passengers see all trips including fully booked ones
-          const data = await BrowserDatabaseService.getTripsWithDetails();
-          // Filter to show all trips for passengers (including fully booked)
-          const availableTrips = data.filter((trip: any) => 
-            (trip.status === 'scheduled' || trip.status === 'fully_booked') &&
-            trip.driverId !== user?.id // Don't show their own trips if they're also a driver
-          );
-          setTrips(availableTrips || []);
-        } else {
-          // Admins see all trips (including cancelled)
-          const data = await BrowserDatabaseService.getTripsWithDetails(undefined, { includeInactive: true });
-          setTrips(data || []);
-        }
-      } else {
-        // Show trips for specific day (today or tomorrow)
-        const targetDate = selectedDayTab === 'today' ? getTodayInAlgeria() : getTomorrowInAlgeria();
-        
-        if (userProfile?.role === 'driver') {
-          // Drivers see only their own trips for selected day
-          const data = await BrowserDatabaseService.getTripsWithDetails(user?.id);
-          const dayTrips = data.filter((trip: any) => trip.departureDate === targetDate);
-          setTrips(dayTrips || []);
-        } else if (userProfile?.role === 'passenger') {
-          // Passengers see all trips for selected day including fully booked ones
-          const data = await BrowserDatabaseService.getTripsWithDetails();
-          // Filter to show selected day trips for passengers (including fully booked)
-          const dayTrips = data.filter((trip: any) => 
-            trip.departureDate === targetDate &&
-            (trip.status === 'scheduled' || trip.status === 'fully_booked') &&
-            trip.driverId !== user?.id // Don't show their own trips if they're also a driver
-          );
-          setTrips(dayTrips || []);
-        } else {
-          // Admins see all trips for selected day (including cancelled)
-          const data = await BrowserDatabaseService.getTripsWithDetails(undefined, { includeInactive: true });
-          const dayTrips = data.filter((trip: any) => trip.departureDate === targetDate);
-          setTrips(dayTrips || []);
-        }
-      }
-    } catch (error) {
-    }
-  };
-
-  // Fetch bookings with full details
-  const fetchBookings = async () => {
+  // Fetch all trips for the user ONCE
+  const fetchAllTrips = async () => {
     if (!user) return;
-    
     try {
       let data;
-      
       if (userProfile?.role === 'driver') {
-        // Get bookings for driver's trips with full details
+        data = await BrowserDatabaseService.getTripsWithDetails(user.id);
+      } else if (userProfile?.role === 'passenger') {
+        data = await BrowserDatabaseService.getTripsWithDetails();
+        // Passengers see only scheduled/fully_booked trips that aren't their own as drivers
+        data = data.filter((trip: any) => 
+          (trip.status === 'scheduled' || trip.status === 'fully_booked') &&
+          trip.driverId !== user?.id
+        );
+      } else {
+        data = await BrowserDatabaseService.getTripsWithDetails(undefined, { includeInactive: true });
+      }
+      setAllTrips(data || []);
+      // Also update trips immediately
+      updateFilteredTripsByDay(data || []);
+    } catch (error) {
+    }
+  };
+
+  // Filter trips based on selected day tab
+  const updateFilteredTripsByDay = (sourceTrips = allTrips) => {
+    if (selectedDayTab === 'all') {
+      setTrips(sourceTrips);
+    } else {
+      const targetDate = selectedDayTab === 'today' ? getTodayInAlgeria() : getTomorrowInAlgeria();
+      const dayTrips = sourceTrips.filter((trip: any) => trip.departureDate === targetDate);
+      setTrips(dayTrips);
+    }
+  };
+
+  // Fetch all bookings for the user ONCE
+  const fetchAllBookings = async () => {
+    if (!user) return;
+    try {
+      let data;
+      if (userProfile?.role === 'driver') {
         data = await BrowserDatabaseService.getBookingsWithDetails(undefined, user.id);
       } else if (userProfile?.role === 'passenger') {
-        // Get bookings for passenger with full details
         data = await BrowserDatabaseService.getBookingsWithDetails(user.id);
       } else {
-        // Admins see all bookings
         data = await BrowserDatabaseService.getBookingsWithDetails();
       }
-      
-      setBookings(data || []);
-    } catch (error) {
-    }
-  };
-
-  // Fetch all trips for driver statistics (not filtered by day tab)
-  const fetchAllTripsForStats = async () => {
-    if (!user || userProfile?.role !== 'driver') return;
-    
-    try {
-      const data = await BrowserDatabaseService.getTripsWithDetails(user.id);
-      setAllTrips(data || []);
-    } catch (error) {
-    }
-  };
-
-  // Fetch all bookings for driver statistics (not filtered by day tab)
-  const fetchAllBookingsForStats = async () => {
-    if (!user || userProfile?.role !== 'driver') return;
-    
-    try {
-      // Use the same function as Profile.tsx to ensure consistency
-      const data = await BrowserDatabaseService.getBookingsByDriver(user.id);
       setAllBookings(data || []);
+      setBookings(data || []);
     } catch (error) {
     }
   };
@@ -1128,11 +1084,9 @@ const UserDashboard = () => {
       const loadData = async () => {
         try {
           await Promise.all([
-        fetchTrips(),
-        fetchBookings(),
-        fetchAllTripsForStats(),
-        fetchAllBookingsForStats(),
-        fetchNotificationStats(),
+            fetchAllTrips(),
+            fetchAllBookings(),
+            fetchNotificationStats(),
             loadAdminStats()
           ]);
           
@@ -1146,7 +1100,7 @@ const UserDashboard = () => {
       
       loadData();
     }
-  }, [userProfile, user]);
+  }, [userProfile, user?.id]);
 
   // Load users when users tab is active (additional check)
   useEffect(() => {
@@ -1170,9 +1124,9 @@ const UserDashboard = () => {
   // Refetch trips when day tab changes
   useEffect(() => {
     if (userProfile) {
-      fetchTrips();
+      updateFilteredTripsByDay();
     }
-  }, [selectedDayTab]);
+  }, [selectedDayTab, allTrips]);
 
   // Monitor for booking success to refresh data immediately
   useEffect(() => {
@@ -1181,8 +1135,8 @@ const UserDashboard = () => {
       if (bookingSuccess) {
         // Clear the flag and reload data immediately
         localStorage.removeItem('booking_success');
-        fetchTrips();
-        fetchBookings();
+        fetchAllTrips();
+        fetchAllBookings();
         fetchNotificationStats();
       }
     };
@@ -3969,28 +3923,42 @@ const UserDashboard = () => {
                 </p>
               </div>
 
-              {/* View Switcher Buttons */}
-              <div className="flex items-center gap-1.5 bg-muted/80 p-1 rounded-xl border border-border">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={bookingsViewMode === 'crm' ? 'default' : 'ghost'}
-                  onClick={() => setBookingsViewMode('crm')}
-                  className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
-                >
-                  <TableIcon className="h-4 w-4" />
-                  <span>جدول CRM</span>
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={bookingsViewMode === 'cards' ? 'default' : 'ghost'}
-                  onClick={() => setBookingsViewMode('cards')}
-                  className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  <span>البطاقات</span>
-                </Button>
+              {/* View Switcher Buttons & Scanner */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {userProfile?.role === 'driver' && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={() => setShowQRScanner(true)}
+                    className="h-8 px-4 text-xs rounded-lg flex items-center gap-1.5 font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    <span>ماسح التذاكر (QR)</span>
+                  </Button>
+                )}
+                
+                <div className="flex items-center gap-1.5 bg-muted/80 p-1 rounded-xl border border-border">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={bookingsViewMode === 'crm' ? 'default' : 'ghost'}
+                    onClick={() => setBookingsViewMode('crm')}
+                    className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
+                  >
+                    <TableIcon className="h-4 w-4" />
+                    <span>جدول CRM</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={bookingsViewMode === 'cards' ? 'default' : 'ghost'}
+                    onClick={() => setBookingsViewMode('cards')}
+                    className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 font-bold"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                    <span>البطاقات</span>
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -4880,6 +4848,13 @@ const UserDashboard = () => {
           booking={selectedBookingForDetails}
         />
       )}
+
+      {/* Driver QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        driverId={user?.id || ''}
+      />
     </div>
   );
 };

@@ -2538,7 +2538,7 @@ export class NotificationService {
     ` : '';
 
     // Action Button
-    const actionText = data.metadata?.actionText || (isReceipt ? 'عرض الوصل والـ QR Code الموثق ←' : 'فتح في التطبيق ←');
+    const actionText = data.metadata?.actionText || (isReceipt ? 'عرض الكود والوصل' : 'فتح في التطبيق ←');
     const actionButtonHtml = actionUrl ? `
       <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 12px 0;">
         <tr>
