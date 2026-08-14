@@ -261,8 +261,8 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
   const systemRip = "00799999002135647891"; 
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl rounded-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 pb-24 md:pb-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-2xl max-h-[85dvh] md:max-h-[90vh] overflow-y-auto border-none shadow-2xl rounded-2xl">
         <CardHeader className="text-center pb-2 border-b">
           <CardTitle className="text-2xl font-bold text-foreground font-cairo">حجز مقعد في الرحلة</CardTitle>
         </CardHeader>
