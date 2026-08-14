@@ -2426,7 +2426,8 @@ export class NotificationService {
     
     const bookingId = data.relatedId || (data.metadata && data.metadata.bookingId) || '';
     const receiptCode = bookingId ? `ABR-${bookingId}` : 'ABRIDE';
-    const actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
+    let actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
+    if (actionUrl && actionUrl.startsWith('/')) { actionUrl = `https://abride.online$actionUrl`; }
 
     const totalAmount = data.metadata?.totalAmount;
     const paymentMethod = data.metadata?.paymentMethod || 'نقداً عند الانطلاق';
@@ -2635,3 +2636,4 @@ export class NotificationService {
     `.trim();
   }
 }
+
