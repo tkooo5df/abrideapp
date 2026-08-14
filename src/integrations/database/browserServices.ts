@@ -76,7 +76,7 @@ interface ProfileUpdateData {
   role?: string | null;
   avatar_url?: string | null;
   wilaya?: string | null;
-  commune?: string | null;
+  
   address?: string | null;
   age?: number | null;
   ksar?: string | null;
@@ -156,7 +156,7 @@ const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
     phone: row.phone ?? null,
     role: (row.role ?? 'passenger') as 'driver' | 'passenger' | 'admin' | 'developer',
     wilaya: row.wilaya ?? 'الجزائر',
-    commune: row.commune ?? 'غير محدد',
+    
     address: row.address ?? 'غير محدد',
     age: ageValue,
     ksar: ksarValue,
@@ -196,7 +196,7 @@ const toProfileInsert = (data: any): TablesInsert<'profiles'> => ({
   role: data.role ?? 'passenger',
   avatar_url: data.avatarUrl ?? null,
   wilaya: data.wilaya ?? null,
-  commune: data.commune ?? null,
+  
   address: data.address ?? null,
   is_verified: data.isVerified ?? false,
   language: data.language ?? 'ar',
@@ -719,7 +719,7 @@ class SupabaseDatabaseService {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id,email,full_name,first_name,last_name,phone,role,avatar_url,is_verified,language,age,ksar,wilaya,commune,address,created_at,updated_at')
+        .select('id,email,full_name,first_name,last_name,phone,role,avatar_url,is_verified,language,age,ksar,wilaya,address,created_at,updated_at')
         .eq('id', id)
         .maybeSingle();
 
@@ -2305,7 +2305,7 @@ class SupabaseDatabaseService {
     fullName?: string;
     phone: string;
     wilaya?: string;
-    commune?: string;
+    
     address?: string;
   }) {
     try {
@@ -2313,7 +2313,7 @@ class SupabaseDatabaseService {
         ...adminData,
         role: 'admin',
         wilaya: adminData.wilaya || 'الجزائر',
-        commune: adminData.commune || 'الجزائر الوسطى',
+        
         address: adminData.address || 'غير محدد',
         isVerified: true,
       });
@@ -3139,7 +3139,7 @@ class SupabaseDatabaseService {
     email?: string;
     phone?: string;
     wilaya?: string;
-    commune?: string;
+    
     age?: number | null;
     ksar?: string | null;
     role?: string;
@@ -3154,7 +3154,7 @@ class SupabaseDatabaseService {
       if (updates.last_name !== undefined) updatePayload.last_name = updates.last_name;
       if (updates.phone !== undefined) updatePayload.phone = updates.phone;
       if (updates.wilaya !== undefined) updatePayload.wilaya = updates.wilaya;
-      if (updates.commune !== undefined) updatePayload.commune = updates.commune;
+      
       if (updates.age !== undefined) updatePayload.age = updates.age;
       if (updates.ksar !== undefined) updatePayload.ksar = updates.ksar;
       if (updates.role !== undefined) updatePayload.role = updates.role;
@@ -3209,3 +3209,4 @@ class SupabaseDatabaseService {
 }
 
 export { SupabaseDatabaseService as BrowserDatabaseService };
+

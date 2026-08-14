@@ -21,7 +21,6 @@ interface FormData {
   lastName: string;
   phone: string;
   wilaya: string;
-  commune: string;
   address: string;
   age: string;
   ksar: string;
@@ -48,7 +47,6 @@ const GoogleSignUpSlides = () => {
     lastName: '',
     phone: '',
     wilaya: '',
-    commune: '',
     address: '',
     age: '',
     ksar: '',
@@ -110,7 +108,6 @@ const GoogleSignUpSlides = () => {
             lastName: profile.last_name || '',
             phone: profile.phone || '',
             wilaya: profile.wilaya || '',
-            commune: profile.commune || '',
             address: profile.address || '',
             age: profile.age ? String(profile.age) : '',
             ksar: profile.ksar || '',
@@ -200,7 +197,6 @@ const GoogleSignUpSlides = () => {
         last_name: formData.lastName,
         phone: formData.phone,
         wilaya: formData.wilaya,
-        commune: formData.commune,
         address: formData.address,
         age: formData.age ? parseInt(formData.age, 10) : null,
         ksar: formData.ksar || null,
@@ -872,3 +868,4 @@ const GoogleSignUpSlides = () => {
 };
 
 export default GoogleSignUpSlides;
+

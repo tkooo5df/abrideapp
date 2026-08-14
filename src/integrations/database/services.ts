@@ -13,7 +13,6 @@ export class DatabaseService {
     phone?: string;
     role?: string;
     wilaya?: string;
-    commune?: string;
     address?: string;
     isVerified?: boolean;
   }) {
@@ -27,7 +26,6 @@ export class DatabaseService {
         phone: data.phone,
         role: data.role || 'passenger',
         wilaya: data.wilaya,
-        commune: data.commune,
         address: data.address,
         isVerified: data.isVerified !== undefined ? data.isVerified : data.role === 'admin',
       },
@@ -800,3 +798,4 @@ export class DatabaseService {
     }
   }
 }
+

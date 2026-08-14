@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,6 @@ const DriverOnboarding = () => {
     phone: "",
     email: "",
     wilaya: "",
-    commune: "",
     address: "",
     
     // Vehicle Info
@@ -61,31 +60,31 @@ const DriverOnboarding = () => {
   });
 
   const vehicleCategories = [
-    { value: "economy", label: "اقتصادي" },
-    { value: "comfort", label: "مريح" },
-    { value: "premium", label: "فاخر" }
+    { value: "economy", label: "???????" },
+    { value: "comfort", label: "????" },
+    { value: "premium", label: "????" }
   ];
 
   const benefits = [
     {
       icon: DollarSign,
-      title: "دخل إضافي",
-      description: "اكسب حتى 50,000 دج شهرياً"
+      title: "??? ?????",
+      description: "???? ??? 50,000 ?? ??????"
     },
     {
       icon: Clock,
-      title: "مرونة في العمل",
-      description: "اختر أوقات عملك بحرية"
+      title: "????? ?? ?????",
+      description: "???? ????? ???? ?????"
     },
     {
       icon: Shield,
-      title: "تأمين شامل",
-      description: "حماية كاملة لك ولمركبتك"
+      title: "????? ????",
+      description: "????? ????? ?? ????????"
     },
     {
       icon: Star,
-      title: "تقييم عالي",
-      description: "بناء سمعة مهنية ممتازة"
+      title: "????? ????",
+      description: "???? ???? ????? ??????"
     }
   ];
 
@@ -115,7 +114,7 @@ const DriverOnboarding = () => {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError || !session) {
-        alert("يجب عليك تسجيل الدخول أولاً.");
+        alert("??? ???? ????? ?????? ?????.");
         return;
       }
 
@@ -130,14 +129,13 @@ const DriverOnboarding = () => {
           last_name: formData.lastName || undefined,
           phone: formData.phone || undefined,
           wilaya: formData.wilaya || undefined,
-          commune: formData.commune || undefined,
           address: formData.address || undefined
         })
         .eq('id', userId);
 
       if (profileError) {
         console.error("Profile update error:", profileError);
-        alert("حدث خطأ أثناء تحديث الملف الشخصي.");
+        alert("??? ??? ????? ????? ????? ??????.");
         return;
       }
 
@@ -171,8 +169,8 @@ const DriverOnboarding = () => {
         const notifications = adminProfiles.map(admin => ({
           user_id: admin.id,
           type: 'system',
-          title: 'طلب سائق جديد',
-          message: `طلب انضمام جديد من ${formData.firstName} ${formData.lastName} - ${formData.vehicleBrand} ${formData.vehicleModel}`,
+          title: '??? ???? ????',
+          message: `??? ?????? ???? ?? ${formData.firstName} ${formData.lastName} - ${formData.vehicleBrand} ${formData.vehicleModel}`,
           is_read: false
         }));
 
@@ -181,11 +179,11 @@ const DriverOnboarding = () => {
         }
       }
 
-      alert("تم إرسال طلبك وتحديث حسابك بنجاح! سنتواصل معك قريباً.");
+      alert("?? ????? ???? ?????? ????? ?????! ??????? ??? ??????.");
       navigate('/admin-dashboard'); // Or navigate('/')
     } catch (error) {
       console.error(error);
-      alert("حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.");
+      alert("??? ??? ????? ????? ?????. ???? ???????? ??? ????.");
     }
   };
 
@@ -198,10 +196,10 @@ const DriverOnboarding = () => {
         <div className="text-center mb-12">
           <div className="bg-gradient-primary rounded-xl p-8 text-white mb-8">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              انضم إلى شبكة سائقي منصة أبريد
+              ???? ??? ???? ????? ???? ?????
             </h1>
             <p className="text-xl text-white/90 max-w-2xl mx-auto">
-              كن جزءاً من أكبر شبكة نقل في الجزائر واكسب دخلاً إضافياً مع مرونة كاملة في العمل
+              ?? ????? ?? ???? ???? ??? ?? ??????? ????? ????? ??????? ?? ????? ????? ?? ?????
             </p>
           </div>
 
@@ -250,16 +248,16 @@ const DriverOnboarding = () => {
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="text-center">
-              {currentStep === 1 && "المعلومات الشخصية"}
-              {currentStep === 2 && "معلومات المركبة"}
-              {currentStep === 3 && "الوثائق المطلوبة"}
-              {currentStep === 4 && "معلومات إضافية"}
+              {currentStep === 1 && "????????? ???????"}
+              {currentStep === 2 && "??????? ???????"}
+              {currentStep === 3 && "??????? ????????"}
+              {currentStep === 4 && "??????? ??????"}
             </CardTitle>
             <CardDescription className="text-center">
-              {currentStep === 1 && "أدخل معلوماتك الشخصية"}
-              {currentStep === 2 && "تفاصيل مركبتك"}
-              {currentStep === 3 && "تأكد من توفر الوثائق"}
-              {currentStep === 4 && "معلومات أخيرة لإكمال التسجيل"}
+              {currentStep === 1 && "???? ???????? ???????"}
+              {currentStep === 2 && "?????? ??????"}
+              {currentStep === 3 && "???? ?? ???? ???????"}
+              {currentStep === 4 && "??????? ????? ?????? ???????"}
             </CardDescription>
           </CardHeader>
           
@@ -269,27 +267,27 @@ const DriverOnboarding = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">الاسم الأول</Label>
+                    <Label htmlFor="firstName">????? ?????</Label>
                     <Input
                       id="firstName"
                       value={formData.firstName}
                       onChange={(e) => handleInputChange("firstName", e.target.value)}
-                      placeholder="أدخل اسمك الأول"
+                      placeholder="???? ???? ?????"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">اسم العائلة</Label>
+                    <Label htmlFor="lastName">??? ???????</Label>
                     <Input
                       id="lastName"
                       value={formData.lastName}
                       onChange={(e) => handleInputChange("lastName", e.target.value)}
-                      placeholder="أدخل اسم العائلة"
+                      placeholder="???? ??? ???????"
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">رقم الهاتف</Label>
+                  <Label htmlFor="phone">??? ??????</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
@@ -299,7 +297,7 @@ const DriverOnboarding = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <Label htmlFor="email">?????? ??????????</Label>
                   <Input
                     id="email"
                     type="email"
@@ -311,10 +309,10 @@ const DriverOnboarding = () => {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="wilaya">الولاية</Label>
+                    <Label htmlFor="wilaya">???????</Label>
                     <Select value={formData.wilaya} onValueChange={(value) => handleInputChange("wilaya", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الولاية" />
+                        <SelectValue placeholder="???? ???????" />
                       </SelectTrigger>
                       <SelectContent>
                         {wilayas.map((wilaya) => (
@@ -325,24 +323,16 @@ const DriverOnboarding = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="commune">البلدية</Label>
-                    <Input
-                      id="commune"
-                      value={formData.commune}
-                      onChange={(e) => handleInputChange("commune", e.target.value)}
-                      placeholder="أدخل البلدية"
-                    />
-                  </div>
+                  
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address">العنوان</Label>
+                  <Label htmlFor="address">???????</Label>
                   <Textarea
                     id="address"
                     value={formData.address}
                     onChange={(e) => handleInputChange("address", e.target.value)}
-                    placeholder="أدخل عنوانك الكامل"
+                    placeholder="???? ?????? ??????"
                   />
                 </div>
               </div>
@@ -353,28 +343,28 @@ const DriverOnboarding = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="vehicleBrand">ماركة المركبة</Label>
+                    <Label htmlFor="vehicleBrand">????? ???????</Label>
                     <Input
                       id="vehicleBrand"
                       value={formData.vehicleBrand}
                       onChange={(e) => handleInputChange("vehicleBrand", e.target.value)}
-                      placeholder="تويوتا، هيونداي، رينو..."
+                      placeholder="??????? ???????? ????..."
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vehicleModel">الموديل</Label>
+                    <Label htmlFor="vehicleModel">???????</Label>
                     <Input
                       id="vehicleModel"
                       value={formData.vehicleModel}
                       onChange={(e) => handleInputChange("vehicleModel", e.target.value)}
-                      placeholder="كورولا، أكسنت، سيمبول..."
+                      placeholder="??????? ?????? ??????..."
                     />
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="vehicleYear">سنة الصنع</Label>
+                    <Label htmlFor="vehicleYear">??? ?????</Label>
                     <Input
                       id="vehicleYear"
                       value={formData.vehicleYear}
@@ -383,18 +373,18 @@ const DriverOnboarding = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vehicleColor">اللون</Label>
+                    <Label htmlFor="vehicleColor">?????</Label>
                     <Input
                       id="vehicleColor"
                       value={formData.vehicleColor}
                       onChange={(e) => handleInputChange("vehicleColor", e.target.value)}
-                      placeholder="أبيض، أسود، رمادي..."
+                      placeholder="????? ????? ?????..."
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="plateNumber">رقم اللوحة</Label>
+                  <Label htmlFor="plateNumber">??? ??????</Label>
                   <Input
                     id="plateNumber"
                     value={formData.plateNumber}
@@ -405,28 +395,28 @@ const DriverOnboarding = () => {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="seats">عدد المقاعد</Label>
+                    <Label htmlFor="seats">??? ???????</Label>
                     <Select value={formData.seats} onValueChange={(value) => handleInputChange("seats", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر عدد المقاعد" />
+                        <SelectValue placeholder="???? ??? ???????" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 مقعد</SelectItem>
-                        <SelectItem value="2">2 مقعد</SelectItem>
-                        <SelectItem value="3">3 مقاعد</SelectItem>
-                        <SelectItem value="4">4 مقاعد</SelectItem>
-                        <SelectItem value="5">5 مقاعد</SelectItem>
-                        <SelectItem value="6">6 مقاعد</SelectItem>
-                        <SelectItem value="7">7 مقاعد</SelectItem>
-                        <SelectItem value="8">8 مقاعد (نقل)</SelectItem><SelectItem value="15">15 مقعد (ميني باص)</SelectItem><SelectItem value="30">30 مقعد 🚌 (حافلة صغيرة)</SelectItem><SelectItem value="35">35 مقعد 🚌 (حافلة متوسطة)</SelectItem><SelectItem value="40">40 مقعد 🚌 (حافلة متوسطة)</SelectItem><SelectItem value="49">49 مقعد 🚌 (حافلة كبيرة)</SelectItem><SelectItem value="50">50 مقعد 🚌 (حافلة كبيرة جداً)</SelectItem><SelectItem value="60">60 مقعد 🚌 (حافلة سياحية)</SelectItem>
+                        <SelectItem value="1">1 ????</SelectItem>
+                        <SelectItem value="2">2 ????</SelectItem>
+                        <SelectItem value="3">3 ?????</SelectItem>
+                        <SelectItem value="4">4 ?????</SelectItem>
+                        <SelectItem value="5">5 ?????</SelectItem>
+                        <SelectItem value="6">6 ?????</SelectItem>
+                        <SelectItem value="7">7 ?????</SelectItem>
+                        <SelectItem value="8">8 ????? (???)</SelectItem><SelectItem value="15">15 ???? (???? ???)</SelectItem><SelectItem value="30">30 ???? ?? (????? ?????)</SelectItem><SelectItem value="35">35 ???? ?? (????? ??????)</SelectItem><SelectItem value="40">40 ???? ?? (????? ??????)</SelectItem><SelectItem value="49">49 ???? ?? (????? ?????)</SelectItem><SelectItem value="50">50 ???? ?? (????? ????? ????)</SelectItem><SelectItem value="60">60 ???? ?? (????? ??????)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="category">فئة المركبة</Label>
+                    <Label htmlFor="category">??? ???????</Label>
                     <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الفئة" />
+                        <SelectValue placeholder="???? ?????" />
                       </SelectTrigger>
                       <SelectContent>
                         {vehicleCategories.map((category) => (
@@ -446,7 +436,7 @@ const DriverOnboarding = () => {
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <p className="text-muted-foreground">
-                    تأكد من توفر الوثائق التالية قبل المتابعة
+                    ???? ?? ???? ??????? ??????? ??? ????????
                   </p>
                 </div>
                 
@@ -458,8 +448,8 @@ const DriverOnboarding = () => {
                       onCheckedChange={(checked) => handleInputChange("hasLicense", checked as boolean)}
                     />
                     <div className="flex-1">
-                      <Label htmlFor="hasLicense" className="font-medium">رخصة القيادة</Label>
-                      <p className="text-sm text-muted-foreground">رخصة قيادة سارية المفعول</p>
+                      <Label htmlFor="hasLicense" className="font-medium">???? ???????</Label>
+                      <p className="text-sm text-muted-foreground">???? ????? ????? ???????</p>
                     </div>
                     <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
@@ -471,8 +461,8 @@ const DriverOnboarding = () => {
                       onCheckedChange={(checked) => handleInputChange("hasInsurance", checked as boolean)}
                     />
                     <div className="flex-1">
-                      <Label htmlFor="hasInsurance" className="font-medium">تأمين المركبة</Label>
-                      <p className="text-sm text-muted-foreground">تأمين شامل أو ضد الغير</p>
+                      <Label htmlFor="hasInsurance" className="font-medium">????? ???????</Label>
+                      <p className="text-sm text-muted-foreground">????? ???? ?? ?? ?????</p>
                     </div>
                     <Shield className="h-5 w-5 text-muted-foreground" />
                   </div>
@@ -484,8 +474,8 @@ const DriverOnboarding = () => {
                       onCheckedChange={(checked) => handleInputChange("hasRegistration", checked as boolean)}
                     />
                     <div className="flex-1">
-                      <Label htmlFor="hasRegistration" className="font-medium">رخصة المركبة</Label>
-                      <p className="text-sm text-muted-foreground">وثيقة تسجيل المركبة</p>
+                      <Label htmlFor="hasRegistration" className="font-medium">???? ???????</Label>
+                      <p className="text-sm text-muted-foreground">????? ????? ???????</p>
                     </div>
                     <Car className="h-5 w-5 text-muted-foreground" />
                   </div>
@@ -494,7 +484,7 @@ const DriverOnboarding = () => {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground text-center">
                     <Upload className="h-4 w-4 inline mr-2" />
-                    ستحتاج لرفع هذه الوثائق بعد قبول طلبك
+                    ?????? ???? ??? ??????? ??? ???? ????
                   </p>
                 </div>
               </div>
@@ -504,38 +494,38 @@ const DriverOnboarding = () => {
             {currentStep === 4 && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="experience">الخبرة في القيادة</Label>
+                  <Label htmlFor="experience">?????? ?? ???????</Label>
                   <Select value={formData.experience} onValueChange={(value) => handleInputChange("experience", value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="اختر مستوى خبرتك" />
+                      <SelectValue placeholder="???? ????? ?????" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="beginner">أقل من سنة</SelectItem>
-                      <SelectItem value="intermediate">1-3 سنوات</SelectItem>
-                      <SelectItem value="experienced">3-5 سنوات</SelectItem>
-                      <SelectItem value="expert">أكثر من 5 سنوات</SelectItem>
+                      <SelectItem value="beginner">??? ?? ???</SelectItem>
+                      <SelectItem value="intermediate">1-3 ?????</SelectItem>
+                      <SelectItem value="experienced">3-5 ?????</SelectItem>
+                      <SelectItem value="expert">???? ?? 5 ?????</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="motivation">لماذا تريد الانضمام إلى منصة أبريد؟</Label>
+                  <Label htmlFor="motivation">????? ???? ???????? ??? ???? ??????</Label>
                   <Textarea
                     id="motivation"
                     value={formData.motivation}
                     onChange={(e) => handleInputChange("motivation", e.target.value)}
-                    placeholder="أخبرنا عن دوافعك للانضمام إلى شبكتنا..."
+                    placeholder="?????? ?? ?????? ???????? ??? ??????..."
                     rows={4}
                   />
                 </div>
                 
                 <div className="bg-primary/5 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">الخطوات التالية:</h4>
+                  <h4 className="font-medium mb-2">??????? ???????:</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• مراجعة طلبك خلال 24-48 ساعة</li>
-                    <li>• التواصل معك لتحديد موعد المقابلة</li>
-                    <li>• فحص المركبة والوثائق</li>
-                    <li>• التدريب والبدء في العمل</li>
+                    <li>� ?????? ???? ???? 24-48 ????</li>
+                    <li>� ??????? ??? ?????? ???? ????????</li>
+                    <li>� ??? ??????? ????????</li>
+                    <li>� ??????? ?????? ?? ?????</li>
                   </ul>
                 </div>
               </div>
@@ -548,17 +538,17 @@ const DriverOnboarding = () => {
                 onClick={prevStep}
                 disabled={currentStep === 1}
               >
-                السابق
+                ??????
               </Button>
               
               {currentStep < 4 ? (
                 <Button onClick={nextStep}>
-                  التالي
+                  ??????
                   <ArrowRight className="h-4 w-4 mr-2" />
                 </Button>
               ) : (
                 <Button onClick={handleSubmit} className="bg-gradient-primary">
-                  إرسال الطلب
+                  ????? ?????
                   <CheckCircle className="h-4 w-4 mr-2" />
                 </Button>
               )}
@@ -573,3 +563,4 @@ const DriverOnboarding = () => {
 };
 
 export default DriverOnboarding;
+

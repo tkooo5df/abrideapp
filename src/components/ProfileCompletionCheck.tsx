@@ -44,8 +44,7 @@ const ProfileCompletionCheck = ({ children }: ProfileCompletionCheckProps) => {
           // Check if essential profile fields are filled
           const isProfileComplete = userProfile.fullName && 
                                    userProfile.phone && 
-                                   userProfile.wilaya && 
-                                   userProfile.commune;
+                                   userProfile.wilaya;
           
           // Only show notification once and only if profile is incomplete and not on profile page
           if (!isProfileComplete && location.pathname !== '/profile' && !hasShownNotification) {

@@ -21,7 +21,6 @@ interface EditProfileData {
   phoneNumber: string;
   age: string;
   wilaya: string;
-  commune: string;
   ksar: string;
   address: string;
   profilePhoto?: string;
@@ -47,7 +46,6 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
     phoneNumber: '',
     age: '',
     wilaya: '',
-    commune: '',
     ksar: '',
     address: '',
     profilePhoto: '',
@@ -102,7 +100,6 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
             phoneNumber: profile.phone || '',
             age: ageValue,
             wilaya: profile.wilaya || '',
-            commune: profile.commune || '',
             ksar: ksarValue,
             address: profile.address || '',
             profilePhoto: profile.avatarUrl || '',
@@ -372,7 +369,6 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
         phone: profileData.phoneNumber,
         age: ageValue,
         wilaya: profileData.wilaya,
-        commune: profileData.commune,
         ksar: profileData.ksar,
         address: profileData.address,
         avatarUrl: avatarUrl
@@ -389,7 +385,6 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
           phone: profileData.phoneNumber,
           age: ageValue,
           wilaya: profileData.wilaya,
-          commune: profileData.commune,
           ksar: profileData.ksar,
           address: profileData.address,
           avatar_url: avatarUrl
@@ -560,15 +555,6 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="commune">البلدية</Label>
-                <Input
-                  id="commune"
-                  value={profileData.commune}
-                  onChange={(e) => setProfileData({...profileData, commune: e.target.value})}
-                  placeholder="أدخل البلدية"
-                />
-              </div>
               
               {profileData.wilaya === '47' && (
                 <div className="space-y-2">
@@ -672,3 +658,4 @@ const EditProfile = ({ onBack }: { onBack: () => void }) => {
 };
 
 export default EditProfile;
+

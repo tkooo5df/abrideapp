@@ -13,7 +13,6 @@ interface Profile {
   avatar_url: string | null;
   language: string | null;
   wilaya: string | null;
-  commune: string | null;
   address: string | null;
   age: number | null;
   ksar: string | null;
@@ -189,7 +188,7 @@ export const useAuth = () => {
       // First, try to get the profile with all required fields
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, age, ksar, wilaya, commune, address, created_at, updated_at, onboarding_completed')
+        .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, age, ksar, wilaya, address, created_at, updated_at, onboarding_completed')
         .eq('id', userId)
         .maybeSingle();
 
@@ -220,7 +219,7 @@ export const useAuth = () => {
             avatar_url: metadata.avatar_url || metadata.avatarURL || null,
             language: metadata.language || 'ar',
             wilaya: metadata.wilaya || null,
-            commune: metadata.commune || null,
+            
             address: metadata.address || null,
             age: metadata.age || null,
             ksar: metadata.ksar || null,

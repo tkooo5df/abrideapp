@@ -11,7 +11,6 @@ interface LocalUser {
   phone: string;
   role: 'driver' | 'passenger' | 'admin' | 'developer';
   wilaya: string;
-  commune: string;
   address: string;
   isVerified: boolean;
   avatarUrl?: string | null;
@@ -48,7 +47,6 @@ const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?
     phone: profile?.phone ?? '',
     role: (profile?.role ?? 'passenger') as 'driver' | 'passenger' | 'admin' | 'developer',
     wilaya: profile?.wilaya ?? 'الجزائر',
-    commune: profile?.commune ?? 'غير محدد',
     address: profile?.address ?? 'غير محدد',
     isVerified: profile?.is_verified ?? false,
     avatarUrl: profile?.avatar_url ?? null,
@@ -100,7 +98,6 @@ export const useLocalAuth = () => {
           phone: updates.phone,
           role: updates.role,
           wilaya: updates.wilaya,
-          commune: updates.commune,
           address: updates.address,
         } as any);
 
@@ -129,3 +126,4 @@ export const useLocalAuth = () => {
     },
   };
 };
+

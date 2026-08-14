@@ -70,7 +70,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
     email: '',
     phone: '',
     wilaya: '',
-    commune: '',
     age: '',
     ksar: '',
     role: '',
@@ -146,7 +145,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
           email: user.email || '',
           phone: profile.phone || user.profile?.phone || '',
           wilaya: profile.wilaya || user.profile?.wilaya || '',
-          commune: profile.commune || '',
           age: profile.age ? String(profile.age) : '',
           ksar: profile.ksar || '',
           role: user.role || '',
@@ -161,7 +159,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
           email: user.email || '',
           phone: user.profile?.phone || '',
           wilaya: user.profile?.wilaya || '',
-          commune: '',
           age: '',
           ksar: '',
           role: user.role || '',
@@ -177,7 +174,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
         email: user.email || '',
         phone: user.profile?.phone || '',
         wilaya: user.profile?.wilaya || '',
-        commune: '',
         age: '',
         ksar: '',
         role: user.role || '',
@@ -198,7 +194,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
         last_name: editFormData.last_name,
         phone: editFormData.phone || null,
         wilaya: editFormData.wilaya,
-        commune: editFormData.commune || null,
         age: editFormData.age ? parseInt(editFormData.age, 10) : null,
         ksar: editFormData.ksar || null,
         role: editFormData.role,
@@ -569,15 +564,6 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
                                   ))}
                                 </SelectContent>
                               </Select>
-                            </div>
-                            <div>
-                              <Label htmlFor="edit-commune">البلدية</Label>
-                              <Input
-                                id="edit-commune"
-                                value={editFormData.commune}
-                                onChange={(e) => setEditFormData({ ...editFormData, commune: e.target.value })}
-                                placeholder="أدخل البلدية"
-                              />
                             </div>
                           </div>
                           

@@ -468,8 +468,7 @@ const UserDashboard = () => {
       if (profile) {
         const isProfileComplete = profile.fullName && 
                                  profile.phone && 
-                                 profile.wilaya && 
-                                 profile.commune;
+                                 profile.wilaya;
         
         if (!isProfileComplete) {
           // Show a toast notification
@@ -830,7 +829,6 @@ const UserDashboard = () => {
             last_name: lastName,
           phone: profile.phone || 'غير محدد',
             wilaya: profile.wilaya || 'غير محدد',
-            commune: profile.commune || '',
             age: profile.age || null,
             ksar: profile.ksar || null
           },
@@ -2226,8 +2224,7 @@ const UserDashboard = () => {
         {userProfile && !(
           (userProfile.fullName || userProfile.full_name) && 
           (userProfile.phone || userProfile.Phone) && 
-          (userProfile.wilaya || userProfile.Wilaya) && 
-          (userProfile.commune || userProfile.Commune)
+          (userProfile.wilaya || userProfile.Wilaya)
         ) && (
           <Card className="border-yellow-200 bg-yellow-50">
             <CardContent className="p-4">
@@ -4873,3 +4870,4 @@ const UserDashboard = () => {
 };
 
 export default UserDashboard;
+

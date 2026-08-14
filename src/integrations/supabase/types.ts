@@ -222,7 +222,6 @@ export type Database = {
           role: string | null
           avatar_url: string | null
           wilaya: string | null
-          commune: string | null
           address: string | null
           date_of_birth: string | null
           is_verified: boolean | null
@@ -242,7 +241,6 @@ export type Database = {
           role?: string | null
           avatar_url?: string | null
           wilaya?: string | null
-          commune?: string | null
           address?: string | null
           date_of_birth?: string | null
           is_verified?: boolean | null
@@ -262,7 +260,6 @@ export type Database = {
           role?: string | null
           avatar_url?: string | null
           wilaya?: string | null
-          commune?: string | null
           address?: string | null
           date_of_birth?: string | null
           is_verified?: boolean | null
@@ -627,3 +624,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
