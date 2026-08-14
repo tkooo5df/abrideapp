@@ -136,6 +136,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Cairo', sans-serif;
+    overflow-x: hidden;
     /* Prevent text selection and pull-to-refresh on mobile */
     user-select: none;
     -webkit-user-select: none;

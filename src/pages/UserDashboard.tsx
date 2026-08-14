@@ -4157,7 +4157,7 @@ const UserDashboard = () => {
                         <Table>
                           <TableHeader className="bg-muted/50 border-b">
                             <TableRow>
-                              <TableHead className="text-right font-bold text-foreground py-3.5">رمز الوصل / المعرف</TableHead>
+                              <TableHead className="text-right font-bold text-foreground py-3.5">المجموعة / المعرف</TableHead>
                               <TableHead className="text-right font-bold text-foreground">الراكب</TableHead>
                               <TableHead className="text-right font-bold text-foreground">السائق</TableHead>
                               <TableHead className="text-right font-bold text-foreground">خط الرحلة</TableHead>
@@ -4180,11 +4180,19 @@ const UserDashboard = () => {
 
                               return (
                                 <TableRow key={booking.id} className={`${bgClass} transition-colors`}>
-                                  {/* Code / ID */}
+                                  {/* Group Type / ID */}
                                   <TableCell className="font-medium whitespace-nowrap py-3">
                                     <div className="flex flex-col">
-                                      <span className="font-mono font-black text-primary text-sm">{receiptCode}</span>
-                                      <span className="text-[11px] text-muted-foreground">#{booking.id}</span>
+                                      {booking.passengerType === 'family' ? (
+                                        <span className="font-black text-emerald-600 text-sm">عائلة</span>
+                                      ) : booking.passengerType === 'youth' ? (
+                                        <span className="font-black text-blue-600 text-sm">شباب</span>
+                                      ) : (
+                                        <span className="font-mono font-black text-primary text-sm">{receiptCode}</span>
+                                      )}
+                                      <span className="text-[11px] text-muted-foreground font-mono">
+                                        {booking.passengerType ? receiptCode : `#${booking.id}`}
+                                      </span>
                                     </div>
                                   </TableCell>
 
