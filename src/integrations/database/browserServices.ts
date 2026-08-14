@@ -124,9 +124,9 @@ interface BookingUpdateData {
 const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
   if (!row) return null;
 
-  const firstName = row.first_name ?? '';
-  const lastName = row.last_name ?? '';
-  const fullName = row.full_name ?? `${firstName} ${lastName}`.trim();
+  const firstName = row.first_name || '';
+  const lastName = row.last_name || '';
+  const fullName = row.full_name || `${firstName} ${lastName}`.trim();
 
   // Handle age: ensure it's a number or null
   const ageValue = row.age !== null && row.age !== undefined 

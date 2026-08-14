@@ -31,12 +31,12 @@ const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?
     return null;
   }
 
-  const id = profile?.id ?? fallbackId ?? '';
-  const email = profile?.email ?? fallbackEmail ?? '';
-  const firstName = profile?.first_name ?? profile?.firstName ?? '';
-  const lastName = profile?.last_name ?? profile?.lastName ?? '';
+  const id = profile?.id || fallbackId || '';
+  const email = profile?.email || fallbackEmail || '';
+  const firstName = profile?.first_name || profile?.firstName || '';
+  const lastName = profile?.last_name || profile?.lastName || '';
   const computedName = `${firstName} ${lastName}`.trim();
-  const fullName = profile?.full_name ?? profile?.fullName ?? (computedName || email);
+  const fullName = profile?.full_name || profile?.fullName || computedName || email;
 
   return {
     id,
