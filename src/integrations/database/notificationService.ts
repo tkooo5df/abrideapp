@@ -290,17 +290,17 @@ export class NotificationService {
       case 'driver':
         if (data.type === NotificationType.BOOKING_CREATED) {
           customized.priority = NotificationPriority.HIGH;
-          customized.actionUrl = `/driver/dashboard?tab=bookings&booking=${data.relatedId}`;
+          customized.actionUrl = `/dashboard?tab=bookings&booking=${data.relatedId}`;
         }
         break;
       case 'passenger':
         if (data.type === NotificationType.BOOKING_CONFIRMED) {
           customized.priority = NotificationPriority.MEDIUM;
-          customized.actionUrl = `/passenger/dashboard?tab=bookings&booking=${data.relatedId}`;
+          customized.actionUrl = `/dashboard?tab=bookings&booking=${data.relatedId}`;
         }
         break;
       case 'admin':
-        customized.actionUrl = `/admin?tab=${data.category}&id=${data.relatedId}`;
+        customized.actionUrl = `/admin/dashboard?tab=${data.category}&id=${data.relatedId}`;
         break;
     }
     
@@ -2426,7 +2426,7 @@ export class NotificationService {
     
     const bookingId = data.relatedId || (data.metadata && data.metadata.bookingId) || '';
     const receiptCode = bookingId ? `ABR-${bookingId}` : 'ABRIDE';
-    let actionUrl = data.actionUrl || (data.metadata && data.metadata.receiptUrl) || (isReceipt && bookingId ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : '');
+    let actionUrl = (isReceipt && bookingId) ? `https://abride.online/verify-receipt?code=${encodeId(receiptCode)}&id=${encodeId(bookingId)}` : (data.actionUrl || (data.metadata && data.metadata.receiptUrl) || '');
     if (actionUrl && actionUrl.startsWith('/')) { actionUrl = `https://abride.online${actionUrl}`; }
 
     const totalAmount = data.metadata?.totalAmount;
