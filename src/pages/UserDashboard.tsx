@@ -64,6 +64,7 @@ import UserManagement from '@/components/admin/UserManagement';
 import SystemSettings from '@/components/admin/SystemSettings';
 import BookingModal from '@/components/booking/BookingModal';
 import BookingReceiptModal from '@/components/booking/BookingReceiptModal';
+import BookingDetailsModal from '@/components/booking/BookingDetailsModal';
 import CancellationWarning from '@/components/CancellationWarning';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
 import { supabase } from '@/integrations/supabase/client';
@@ -180,6 +181,8 @@ const UserDashboard = () => {
   const [selectedTripForRoute, setSelectedTripForRoute] = useState<any>(null);
   const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<any>(null);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
+  const [showBookingDetailsModal, setShowBookingDetailsModal] = useState<boolean>(false);
   const [bookingsViewMode, setBookingsViewMode] = useState<'crm' | 'cards'>('crm');
   const [bookingSearchQuery, setBookingSearchQuery] = useState<string>('');
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all');
@@ -3763,7 +3766,7 @@ const UserDashboard = () => {
                                 variant="outline"
                                 className="flex-1 border-red-500 text-red-600 hover:bg-red-50 transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg"
                                 disabled={!userProfile?.isVerified}
-                                onClick={() => handleCancelTrip(trip.id)}
+                                onClick={(e) => { e.stopPropagation(); handleCancelTrip(trip.id); }}
                               >
                                 <X className="h-4 w-4 mr-2" />
                                 <span className="hidden sm:inline">إلغاء</span>
@@ -3775,7 +3778,7 @@ const UserDashboard = () => {
                               variant="destructive" 
                               className="flex-1 transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg"
                               disabled={!userProfile?.isVerified}
-                              onClick={() => handleDeleteTrip(trip.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTrip(trip.id); }}
                             >
                               <Trash className="h-4 w-4 mr-2" />
                               <span className="hidden sm:inline">حذف</span>
@@ -4331,7 +4334,7 @@ const UserDashboard = () => {
                                           <Button
                                             size="sm"
                                             className="h-8 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold"
-                                            onClick={() => handleConfirmBooking(booking.id)}
+                                            onClick={(e) => { e.stopPropagation(); handleConfirmBooking(booking.id); }}
                                             disabled={confirmingBookingId !== null}
                                           >
                                             {confirmingBookingId === booking.id ? (
@@ -4348,7 +4351,7 @@ const UserDashboard = () => {
                                             size="sm"
                                             variant="outline"
                                             className="h-8 text-red-600 border-red-300 hover:bg-red-50 text-xs font-bold"
-                                            onClick={() => handleRejectBooking(booking.id)}
+                                            onClick={(e) => { e.stopPropagation(); handleRejectBooking(booking.id); }}
                                             disabled={rejectingBookingId !== null}
                                           >
                                             <X className="h-3.5 w-3.5 mr-1" />
@@ -4362,7 +4365,7 @@ const UserDashboard = () => {
                                           <Button
                                             size="sm"
                                             className="h-8 bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold"
-                                            onClick={() => handleCompleteBooking(booking.id)}
+                                            onClick={(e) => { e.stopPropagation(); handleCompleteBooking(booking.id); }}
                                           >
                                             <Check className="h-3.5 w-3.5 mr-1" />
                                             إكمال
@@ -4863,6 +4866,18 @@ const UserDashboard = () => {
             setSelectedBookingForReceipt(null);
           }}
           booking={selectedBookingForReceipt}
+        />
+      )}
+
+      {/* Booking Details Modal */}
+      {selectedBookingForDetails && (
+        <BookingDetailsModal
+          isOpen={showBookingDetailsModal}
+          onClose={() => {
+            setShowBookingDetailsModal(false);
+            setSelectedBookingForDetails(null);
+          }}
+          booking={selectedBookingForDetails}
         />
       )}
     </div>
