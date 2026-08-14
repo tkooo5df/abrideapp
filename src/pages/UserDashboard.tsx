@@ -65,6 +65,7 @@ import SystemSettings from '@/components/admin/SystemSettings';
 import BookingModal from '@/components/booking/BookingModal';
 import BookingReceiptModal from '@/components/booking/BookingReceiptModal';
 import BookingDetailsModal from '@/components/booking/BookingDetailsModal';
+import QRScannerModal from '@/components/driver/QRScannerModal';
 import CancellationWarning from '@/components/CancellationWarning';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
 import { supabase } from '@/integrations/supabase/client';
