@@ -220,12 +220,12 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen flex flex-col bg-background" dir="rtl">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <Card>
+      <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
+        <div className="w-full max-w-md mx-auto">
+          <Card className="w-full shadow-lg">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
                 <Lock className="h-8 w-8 text-primary" />
