@@ -29,7 +29,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
 
   const statusInfo = getStatusBadge(booking.status);
   const tripType = booking.tripType || booking.trip_type;
-  const isBaridiMob = booking.paymentMethod === 'bpm' || booking.payment_method === 'bpm';
+  const isBaridiMob = booking.paymentMethod === 'bpm' || booking.payment_method === 'bpm' || booking.paymentMethod === 'baridimob' || booking.payment_method === 'baridimob';
   const receiptUrl = booking.receiptUrl || booking.receipt_url;
 
   return (

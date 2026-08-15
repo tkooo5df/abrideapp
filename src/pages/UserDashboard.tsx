@@ -122,6 +122,10 @@ const UserDashboard = () => {
   // Separate state variables for statistics (not filtered by day tab)
   const [allTrips, setAllTrips] = useState([]); // All trips for driver statistics
   const [allBookings, setAllBookings] = useState([]); // All bookings for driver statistics
+  
+  // Load older trips state
+  const [limitTripsDays, setLimitTripsDays] = useState<number | null>(30); // 30 days by default
+  const [loadingOlderTrips, setLoadingOlderTrips] = useState(false);
 
   // Only count bookings after driver acceptance for passenger-facing counts
   const acceptedBookings = bookings.filter((b: any) => ['confirmed', 'in_progress', 'completed'].includes(b.status));
@@ -610,27 +614,41 @@ const UserDashboard = () => {
 
   // Fetch trips based on user role and selected day
   // Fetch all trips for the user ONCE
-  const fetchAllTrips = async () => {
+  const fetchAllTrips = async (days = limitTripsDays) => {
     if (!user) return;
     try {
+      let minDate: string | undefined = undefined;
+      if (days !== null) {
+        const d = new Date();
+        d.setDate(d.getDate() - days);
+        minDate = d.toISOString();
+      }
+
       let data;
       if (userProfile?.role === 'driver') {
-        data = await BrowserDatabaseService.getTripsWithDetails(user.id);
+        data = await BrowserDatabaseService.getTripsWithDetails(user.id, { minDate });
       } else if (userProfile?.role === 'passenger') {
-        data = await BrowserDatabaseService.getTripsWithDetails();
+        data = await BrowserDatabaseService.getTripsWithDetails(undefined, { minDate });
         // Passengers see only scheduled/fully_booked trips that aren't their own as drivers
         data = data.filter((trip: any) => 
           (trip.status === 'scheduled' || trip.status === 'fully_booked') &&
           trip.driverId !== user?.id
         );
       } else {
-        data = await BrowserDatabaseService.getTripsWithDetails(undefined, { includeInactive: true });
+        data = await BrowserDatabaseService.getTripsWithDetails(undefined, { includeInactive: true, minDate });
       }
       setAllTrips(data || []);
       // Also update trips immediately
       updateFilteredTripsByDay(data || []);
     } catch (error) {
     }
+  };
+
+  const handleLoadOlderTrips = async () => {
+    setLoadingOlderTrips(true);
+    setLimitTripsDays(null);
+    await fetchAllTrips(null);
+    setLoadingOlderTrips(false);
   };
 
   // Filter trips based on selected day tab
@@ -1008,6 +1026,17 @@ const UserDashboard = () => {
             'تم إعادة تفعيل الحساب من قبل المدير',
             user?.id
           );
+          
+          // Clean up old suspension notifications so the driver doesn't see them
+          try {
+            await supabase
+              .from('notifications')
+              .delete()
+              .eq('user_id', targetUserId)
+              .eq('type', 'account_suspended'); // This matches NotificationType.ACCOUNT_SUSPENDED
+          } catch (e) {
+            console.error('Error deleting old suspension notifications:', e);
+          }
           
           // Send reactivation notification
           try {
@@ -3793,6 +3822,24 @@ const UserDashboard = () => {
                 })
               )}
             </div>
+            
+            {/* Load older trips button */}
+            {limitTripsDays !== null && selectedDayTab === 'all' && (
+              <div className="mt-6 flex justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handleLoadOlderTrips} 
+                  disabled={loadingOlderTrips}
+                  className="w-full sm:w-auto border-dashed border-2 hover:bg-muted"
+                >
+                  {loadingOlderTrips ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> جاري التحميل...</>
+                  ) : (
+                    'تحميل الرحلات الأقدم (قبل 30 يوماً)'
+                  )}
+                </Button>
+              </div>
+            )}
           </TabsContent>
           
           {/* Profile Edit Tab */}

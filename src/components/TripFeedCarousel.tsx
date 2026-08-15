@@ -270,22 +270,22 @@ const TripFeedCarousel = () => {
                       : 'bg-card border hover:border-primary hover:shadow-lg hover:-translate-y-1'
                   }`}>
                     {/* Header with route - شريط ملون خفيف */}
-                    <div className={`p-3 ${isFullyBooked ? 'bg-muted/30' : 'bg-primary/5'}`}>
+                    <div className={`p-2 md:p-3 ${isFullyBooked ? 'bg-muted/30' : 'bg-primary/5'}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className={`text-sm font-bold truncate ${isFullyBooked ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary flex-shrink-0" />
+                          <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
+                            <span className={`text-[11px] md:text-sm font-bold truncate ${isFullyBooked ? 'text-muted-foreground' : 'text-foreground'}`}>
                               {trip.fromWilayaName || `ولاية ${trip.fromWilayaId}`}
                               {trip.fromWilayaId === 47 && (trip as any).fromKsar && (
-                                <span className="text-xs text-primary font-medium"> - {(trip as any).fromKsar}</span>
+                                <span className="text-[9px] md:text-xs text-primary font-medium"> - {(trip as any).fromKsar}</span>
                               )}
                             </span>
-                            <ArrowLeft className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                            <span className={`text-sm font-bold truncate ${isFullyBooked ? 'text-muted-foreground' : 'text-foreground'}`}>
+                            <ArrowLeft className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0 text-muted-foreground" />
+                            <span className={`text-[11px] md:text-sm font-bold truncate ${isFullyBooked ? 'text-muted-foreground' : 'text-foreground'}`}>
                               {trip.toWilayaName || `ولاية ${trip.toWilayaId}`}
                               {trip.toWilayaId === 47 && (trip as any).toKsar && (
-                                <span className="text-xs text-primary font-medium"> - {(trip as any).toKsar}</span>
+                                <span className="text-[9px] md:text-xs text-primary font-medium"> - {(trip as any).toKsar}</span>
                               )}
                             </span>
                           </div>
@@ -297,7 +297,7 @@ const TripFeedCarousel = () => {
                         )}
                       </div>
                     </div>
-                    <CardContent className="space-y-3 p-3 pt-4">
+                    <CardContent className="space-y-2 md:space-y-3 p-2 md:p-3 pt-3 md:pt-4">
                       {/* Driver & Vehicle Info - بسيط بدون ألوان */}
                       <div className="space-y-2">
                         <div 
@@ -336,35 +336,77 @@ const TripFeedCarousel = () => {
                         </div>
                         
                         <div className="flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs truncate">{trip.departureTime}</span>
+                          <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-[11px] md:text-xs truncate">{trip.departureTime}</span>
                         </div>
                       </div>
+
+                      {/* Return Date & Time - If exists */}
+                      {((trip as any).returnDate || (trip as any).return_date) && (
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-500">
+                            <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
+                            <span className="text-[11px] md:text-xs truncate font-medium">العودة: {(trip as any).returnDate || (trip as any).return_date}</span>
+                          </div>
+                          {((trip as any).returnTime || (trip as any).return_time) && (
+                            <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-500">
+                              <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
+                              <span className="text-[11px] md:text-xs truncate font-medium">{(trip as any).returnTime || (trip as any).return_time}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       {/* Price & Seats - مع ألوان */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center gap-1.5 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
                           <Banknote className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-green-700 dark:text-green-300">السعر</p>
+                            <p className="text-[10px] text-green-700 dark:text-green-300">سعر الذهاب</p>
                             <p className="text-sm font-bold text-green-600 dark:text-green-400">{trip.pricePerSeat} دج</p>
                           </div>
                         </div>
                         
-                        <div className={`flex items-center gap-1.5 p-2 rounded-md border ${
+                        <div className={`flex items-center gap-1.5 p-1.5 md:p-2 rounded-md border ${
                           isFullyBooked 
                             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' 
-                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
                         }`}>
-                          <Users className={`h-4 w-4 flex-shrink-0 ${isFullyBooked ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`} />
+                          <Users className={`h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0 ${isFullyBooked ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[10px] ${isFullyBooked ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'}`}>المقاعد</p>
-                            <p className={`text-sm font-bold ${isFullyBooked ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                            <p className={`text-[9px] md:text-[10px] ${isFullyBooked ? 'text-red-700 dark:text-red-300' : 'text-yellow-700 dark:text-yellow-300'}`}>مقاعد الذهاب</p>
+                            <p className={`text-xs md:text-sm font-bold ${isFullyBooked ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                               {isFullyBooked ? 'ممتلئ' : `${trip.availableSeats}/${trip.totalSeats}`}
                             </p>
                           </div>
                         </div>
                       </div>
+
+                      {((trip as any).returnDate || (trip as any).return_date) && (
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="flex items-center gap-1.5 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-700">
+                            <Banknote className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] text-blue-700 dark:text-blue-300">سعر الإياب</p>
+                              <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{(trip as any).return_price_per_seat || trip.pricePerSeat} دج</p>
+                            </div>
+                          </div>
+                          
+                          <div className={`flex items-center gap-1.5 p-1.5 md:p-2 rounded-md border ${
+                            ((trip as any).return_available_seats === 0) 
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' 
+                              : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
+                          }`}>
+                            <Users className={`h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0 ${((trip as any).return_available_seats === 0) ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[9px] md:text-[10px] ${((trip as any).return_available_seats === 0) ? 'text-red-700 dark:text-red-300' : 'text-yellow-700 dark:text-yellow-300'}`}>مقاعد الإياب</p>
+                              <p className={`text-xs md:text-sm font-bold ${((trip as any).return_available_seats === 0) ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                                {((trip as any).return_available_seats === 0) ? 'ممتلئ' : `${(trip as any).return_available_seats ?? trip.availableSeats}/${trip.totalSeats}`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       
                       <Button 
                         className={`w-full h-9 text-sm transition-all duration-300 ${

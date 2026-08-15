@@ -254,14 +254,14 @@ const TripDetails = () => {
 
         {/* Content Section */}
         <div className="container mx-auto px-3 md:px-4 -mt-16 relative z-20 max-w-6xl">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 md:gap-6">
             
             {/* Main Details (Left/Center) */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="lg:col-span-2 space-y-4 md:space-y-6"
+              className="lg:col-span-2 space-y-4 md:space-y-6 order-1"
             >
               {/* Driver Card */}
               <Card className="border-none shadow-xl bg-card/95 backdrop-blur overflow-hidden rounded-3xl">
@@ -321,7 +321,7 @@ const TripDetails = () => {
                   <Separator className="my-6" />
 
                   {/* Vehicle Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-3 md:gap-6">
                     <div className="flex items-start gap-4 p-4 rounded-xl bg-secondary/30">
                       <div className="p-3 bg-primary/10 rounded-lg text-primary">
                         <Car className="h-6 w-6" />
@@ -350,60 +350,6 @@ const TripDetails = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* REVIEWS SECTION */}
-              <Card className="border-none shadow-md bg-card/95 backdrop-blur rounded-3xl overflow-hidden mt-8">
-                <CardContent className="p-6 sm:p-8">
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="font-bold text-2xl flex items-center gap-3">
-                        <MessageSquare className="h-6 w-6 text-primary" />
-                        تقييمات الركاب
-                      </h3>
-                      <p className="text-muted-foreground mt-2">تعرف على تجارب الركاب السابقين مع هذا السائق</p>
-                    </div>
-                  </div>
-
-                  {reviews.length === 0 ? (
-                    <div className="text-center py-12 bg-secondary/20 rounded-2xl border border-dashed border-primary/20">
-                      <Star className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-20" />
-                      <p className="text-muted-foreground font-medium">لا توجد تقييمات لهذا السائق بعد.</p>
-                      <p className="text-sm text-muted-foreground mt-1">كن أول من يحجز ويقيم تجربته!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {reviews.map((review) => (
-                        <div key={review.id} className="p-5 rounded-2xl bg-secondary/20 border border-secondary transition-colors hover:bg-secondary/40">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              {(review as any).reviewer?.avatar_url ? (
-                                <img src={(review as any).reviewer.avatar_url} className="w-10 h-10 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <User className="h-5 w-5 text-primary" />
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-bold text-sm">{(review as any).reviewer?.full_name || 'راكب'}</p>
-                                <p className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString('ar-DZ')}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded-lg">
-                              <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                              <span className="font-bold text-sm text-yellow-700 dark:text-yellow-500">{review.rating}</span>
-                            </div>
-                          </div>
-                          {review.comment && (
-                            <p className="text-foreground text-sm mt-3 leading-relaxed bg-background p-3 rounded-xl border">
-                              "{review.comment}"
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </motion.div>
 
             {/* Booking Card (Right/Sidebar) */}
@@ -411,7 +357,7 @@ const TripDetails = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="lg:col-span-1"
+              className="lg:col-span-1 order-2"
             >
               <div className="sticky top-24 space-y-4 md:space-y-6">
                 
@@ -420,28 +366,45 @@ const TripDetails = () => {
                   <div className={`h-1.5 w-full ${isOutboundFull ? 'bg-red-500' : 'bg-primary'}`}></div>
                   <CardContent className="p-6">
                     <Badge variant="outline" className="mb-4 font-bold border-primary text-primary bg-primary/5">مسار الذهاب</Badge>
-                    <div className="flex items-end justify-between mb-6">
+                    <div className="flex items-end justify-between mb-5">
                       <div>
-                        <p className="text-sm text-muted-foreground font-medium mb-1">سعر الذهاب للمقعد</p>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">سعر الذهاب للمقعد</p>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-black text-primary">{trip.pricePerSeat}</span>
+                          <span className="text-3xl font-black text-primary drop-shadow-sm">{trip.pricePerSeat}</span>
                           <span className="text-sm font-bold text-primary">دج</span>
                         </div>
                       </div>
-                      <div className="text-left bg-secondary/40 p-2 rounded-xl text-xs font-medium">
-                        <div>{trip.departureDate}</div>
-                        <div className="font-bold text-foreground">{trip.departureTime}</div>
+                      <div className="text-left bg-primary/10 border border-primary/20 p-2.5 rounded-xl text-xs font-medium">
+                        <div className="flex items-center gap-1.5 text-primary mb-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>{trip.departureDate}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-foreground font-bold">
+                          <Clock className="h-3.5 w-3.5 text-primary" />
+                          <span>{trip.departureTime}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-2 md:p-3 mb-4 md:mb-6 rounded-xl bg-secondary/50">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                        <span className="font-medium text-xs md:text-sm">المقاعد المتاحة (ذهاب)</span>
+                    <div className={`flex items-center justify-between p-3 mb-5 rounded-xl border ${
+                      isOutboundFull 
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+                        : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${isOutboundFull ? 'bg-red-100 dark:bg-red-900/40 text-red-600' : 'bg-green-100 dark:bg-green-900/40 text-green-600'}`}>
+                          <Users className="h-4 w-4 md:h-5 md:w-5" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`text-[10px] font-bold uppercase ${isOutboundFull ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>التوفر</span>
+                          <span className="font-bold text-xs md:text-sm text-foreground">المقاعد المتاحة للذهاب</span>
+                        </div>
                       </div>
-                      <span className={`font-bold text-sm md:text-base ${isOutboundFull ? 'text-red-500' : 'text-foreground'}`}>
-                        {isOutboundFull ? 'ممتلئة' : `${trip.availableSeats}`}
-                      </span>
+                      <div className="text-center">
+                        <span className={`text-2xl font-black ${isOutboundFull ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {isOutboundFull ? '0' : `${trip.availableSeats}`}
+                        </span>
+                      </div>
                     </div>
 
                     <Button 
@@ -466,30 +429,47 @@ const TripDetails = () => {
                     <div className={`h-1.5 w-full ${isReturnFull ? 'bg-red-500' : 'bg-blue-500'}`}></div>
                     <CardContent className="p-4 md:p-6">
                       <Badge variant="outline" className="mb-3 md:mb-4 font-bold border-blue-500 text-blue-500 bg-blue-500/5 text-xs md:text-sm">مسار الإياب</Badge>
-                      <div className="flex items-end justify-between mb-4 md:mb-6">
+                      
+                      <div className="flex items-end justify-between mb-5">
                         <div>
                           <p className="text-xs md:text-sm text-muted-foreground font-medium mb-1">سعر الإياب للمقعد</p>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-2xl md:text-3xl font-black text-blue-600 dark:text-blue-400">{trip.return_price_per_seat || trip.pricePerSeat}</span>
+                            <span className="text-2xl md:text-3xl font-black text-blue-600 dark:text-blue-400 drop-shadow-sm">{trip.return_price_per_seat || trip.pricePerSeat}</span>
                             <span className="text-xs md:text-sm font-bold text-blue-600 dark:text-blue-400">دج</span>
                           </div>
                         </div>
-                        <div className="text-left bg-secondary/40 p-2 rounded-xl text-xs font-medium">
-                          <div>{trip.return_date}</div>
-                          <div className="font-bold text-foreground">{trip.return_time}</div>
+                        <div className="text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2.5 rounded-xl text-xs font-medium">
+                          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 mb-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>{trip.return_date}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-foreground font-bold">
+                            <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                            <span>{trip.return_time}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between p-2 md:p-3 mb-4 md:mb-6 rounded-xl bg-secondary/50">
-                        <div className="flex items-center gap-2 md:gap-3">
-                          <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                          <span className="font-medium text-xs md:text-sm">المقاعد المتاحة (إياب)</span>
+                      <div className={`flex items-center justify-between p-3 mb-5 rounded-xl border ${
+                        isReturnFull 
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+                          : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isReturnFull ? 'bg-red-100 dark:bg-red-900/40 text-red-600' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600'}`}>
+                            <Users className="h-4 w-4 md:h-5 md:w-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className={`text-[10px] font-bold uppercase ${isReturnFull ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'}`}>التوفر</span>
+                            <span className="font-bold text-xs md:text-sm text-foreground">المقاعد المتاحة للإياب</span>
+                          </div>
                         </div>
-                        <span className={`font-bold text-sm md:text-base ${isReturnFull ? 'text-red-500' : 'text-foreground'}`}>
-                          {isReturnFull ? 'ممتلئة' : `${trip.return_available_seats}`}
-                        </span>
+                        <div className="text-center">
+                          <span className={`text-2xl font-black ${isReturnFull ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                            {isReturnFull ? '0' : `${trip.return_available_seats}`}
+                          </span>
+                        </div>
                       </div>
-
                       <Button 
                         variant="secondary"
                         className={`w-full h-10 md:h-12 text-sm md:text-base font-bold rounded-xl transition-all ${

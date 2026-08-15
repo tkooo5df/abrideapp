@@ -1,47 +1,51 @@
 // Telegram notification service for admin notifications
 export class TelegramService {
   private static readonly BOT_TOKEN = '8551754184:AAHMA2tAc8_n9gHLGJrcgl9h_9jVr1SXSI4';
-  private static readonly ADMIN_CHAT_ID = '7506216384';
+  private static readonly ADMIN_CHAT_IDS = ['7506216384', '7852021036'];
   private static readonly API_URL = `https://api.telegram.org/bot${TelegramService.BOT_TOKEN}`;
 
   // Send photo to admin via Telegram
   static async sendPhoto(photoDataUrl: string, caption?: string): Promise<boolean> {
     try {
-      let body: FormData | string;
-      let headers: Record<string, string> = {};
+      let isSuccess = false;
+      for (const chatId of TelegramService.ADMIN_CHAT_IDS) {
+        let body: FormData | string;
+        let headers: Record<string, string> = {};
 
-      if (photoDataUrl.startsWith('data:image')) {
-        // Convert base64 to Blob
-        const fetchResponse = await fetch(photoDataUrl);
-        const blob = await fetchResponse.blob();
-        
-        const formData = new FormData();
-        formData.append('chat_id', TelegramService.ADMIN_CHAT_ID);
-        formData.append('photo', blob, 'receipt.jpg');
-        if (caption) {
-          formData.append('caption', caption);
-          formData.append('parse_mode', 'HTML');
+        if (photoDataUrl.startsWith('data:image')) {
+          // Convert base64 to Blob
+          const fetchResponse = await fetch(photoDataUrl);
+          const blob = await fetchResponse.blob();
+          
+          const formData = new FormData();
+          formData.append('chat_id', chatId);
+          formData.append('photo', blob, 'receipt.jpg');
+          if (caption) {
+            formData.append('caption', caption);
+            formData.append('parse_mode', 'HTML');
+          }
+          body = formData;
+        } else {
+          // URL based
+          const requestBody = {
+            chat_id: chatId,
+            photo: photoDataUrl,
+            caption: caption,
+            parse_mode: 'HTML',
+          };
+          body = JSON.stringify(requestBody);
+          headers['Content-Type'] = 'application/json';
         }
-        body = formData;
-      } else {
-        // URL based
-        const requestBody = {
-          chat_id: TelegramService.ADMIN_CHAT_ID,
-          photo: photoDataUrl,
-          caption: caption,
-          parse_mode: 'HTML',
-        };
-        body = JSON.stringify(requestBody);
-        headers['Content-Type'] = 'application/json';
-      }
 
-      const response = await fetch(`${TelegramService.API_URL}/sendPhoto`, {
-        method: 'POST',
-        headers,
-        body,
-      });
-      const result = await response.json();
-      return result.ok;
+        const response = await fetch(`${TelegramService.API_URL}/sendPhoto`, {
+          method: 'POST',
+          headers,
+          body,
+        });
+        const result = await response.json();
+        if (result.ok) isSuccess = true;
+      }
+      return isSuccess;
     } catch (error) {
       console.error('Error sending photo to telegram:', error);
       return false;
@@ -51,20 +55,24 @@ export class TelegramService {
   // Send message to admin via Telegram
   static async sendMessage(message: string): Promise<boolean> {
     try {
-      const requestBody = {
-        chat_id: TelegramService.ADMIN_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML',
-      };
-      const response = await fetch(`${TelegramService.API_URL}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-      const result = await response.json();
-      return result.ok;
+      let isSuccess = false;
+      for (const chatId of TelegramService.ADMIN_CHAT_IDS) {
+        const requestBody = {
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML',
+        };
+        const response = await fetch(`${TelegramService.API_URL}/sendMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+        const result = await response.json();
+        if (result.ok) isSuccess = true;
+      }
+      return isSuccess;
     } catch (error: any) {
       return false;
     }
@@ -87,7 +95,7 @@ export class TelegramService {
 👤 الراكب: ${data.passengerName}
 📍 المسار: ${data.fromWilaya} ← ${data.toWilaya}
 💰 المبلغ: ${data.amount} دج
-💳 طريقة الدفع: ${data.paymentMethod === 'bpm' ? 'بريدي موب (BaridiMob)' : 'نقداً'}
+💳 طريقة الدفع: ${(data.paymentMethod === 'bpm' || data.paymentMethod === 'baridimob') ? 'بريدي موب (BaridiMob)' : 'نقداً'}
 📋 رقم الحجز: #${data.bookingId}
 
 ⏰ الوقت: ${new Date().toLocaleString('ar-DZ', { timeZone: 'Africa/Algiers' })}

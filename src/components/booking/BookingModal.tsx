@@ -57,7 +57,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
     destinationPoint: '',
     seatsBooked: '1',
     paymentMethod: 'cod',
-    tripType: (trip.returnDate || isBusTrip) ? 'round_trip' : 'outbound',
+    tripType: initialTripType || ((trip.returnDate || isBusTrip) ? 'round_trip' : 'outbound'),
     passengerType: 'family',
     specialRequests: ''
   });
@@ -125,9 +125,13 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
     }
   };
 
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isSubmittingRef.current) return;
+    
     if (!isAuthenticated) {
       setShowLoginPrompt(true);
       return;
@@ -162,6 +166,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
@@ -239,6 +244,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
       });
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -358,7 +364,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
               )}
 
               {/* Trip Type Selector */}
-              {(trip.returnDate || isBusTrip) && (
+              {!initialTripType && (trip.returnDate || isBusTrip) && (
                 <div className="space-y-3">
                   <Label className="font-bold text-sm">نوع الحجز المطلوب *</Label>
                   <div className="grid grid-cols-3 gap-3">

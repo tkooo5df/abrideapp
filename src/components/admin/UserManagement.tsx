@@ -28,6 +28,7 @@ import {
   Save
 } from "lucide-react";
 import { BrowserDatabaseService } from "@/integrations/database/browserServices";
+import { supabase } from "@/integrations/supabase/client";
 import { wilayas } from "@/data/wilayas";
 import { toast } from "@/hooks/use-toast";
 
@@ -47,6 +48,7 @@ interface User {
     phone?: string;
     wilaya?: string;
   };
+  referral_source?: string;
 }
 
 interface UserManagementProps {
@@ -206,6 +208,19 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
       }
       
       await BrowserDatabaseService.updateUserProfile(editingUser.id, updates);
+      
+      // If the admin is lifting the suspension, delete old suspension notifications
+      if (editingUser.status === 'suspended' && !editFormData.account_suspended) {
+        try {
+          await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', editingUser.id)
+            .eq('type', 'account_suspended');
+        } catch (e) {
+          console.error('Error deleting old suspension notifications:', e);
+        }
+      }
       
       toast({
         title: '✅ تم التحديث',
@@ -379,6 +394,12 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
                               <span>ولاية {user.profile.wilaya}</span>
                             </div>
                           )}
+                          {user.referral_source && (
+                            <div className="flex items-center gap-2 text-primary/80">
+                              <Shield className="h-3 w-3" />
+                              <span>المصدر: {user.referral_source}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -444,6 +465,9 @@ const UserManagement = ({ users, onUserAction, processingAction }: UserManagemen
                                   {/* Show if it's a demo account */}
                                   {selectedUser.isDemo && (
                                     <div>نوع الحساب: تجريبي</div>
+                                  )}
+                                  {selectedUser.referral_source && (
+                                    <div>المصدر المحيل: <span className="font-medium text-primary">{selectedUser.referral_source}</span></div>
                                   )}
                                 </div>
                               </div>

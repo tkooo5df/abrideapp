@@ -63,6 +63,7 @@ import AppOnboarding from "./pages/AppOnboarding";
 import VerifyReceipt from "./pages/VerifyReceipt";
 import { NativeRouteGuard } from "./components/NativeRouteGuard";
 import { GlobalOnboardingGuard } from "./components/GlobalOnboardingGuard";
+import { ReferralTracker } from "./components/ReferralTracker";
 
 // Initialize scheduled tasks
 ScheduledTasksService.startScheduledTasks();
@@ -119,6 +120,7 @@ function App() {
               v7_relativeSplatPath: true,
             }}
           >
+            <ReferralTracker />
             <GlobalOnboardingGuard>
               <LocationPermissionRequest>
                 <NativeRouteGuard>

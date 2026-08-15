@@ -6,6 +6,7 @@ import FeaturesSection from "@/components/home/FeaturesSection";
 import TripFeedCarousel from "@/components/TripFeedCarousel";
 import MapSection from "@/components/home/MapSection";
 import JoinSection from "@/components/home/JoinSection";
+import PlatformReviewsSection from "@/components/home/PlatformReviewsSection";
 
 const Index = () => {
 
@@ -18,6 +19,7 @@ const Index = () => {
         <FeaturesSection />
         <TripFeedCarousel />
         <MapSection />
+        <PlatformReviewsSection />
         <JoinSection />
       </main>
       <Footer />

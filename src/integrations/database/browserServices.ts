@@ -697,21 +697,6 @@ class SupabaseDatabaseService {
 
     const profile = await attachDriverRating(mapProfile(result));
 
-    // Send notification to admin about new user registration
-    try {
-      if (profile) {
-        const { NotificationService } = await import('./notificationService');
-        await NotificationService.notifyAdminNewUser({
-          userId: profile.id,
-          userRole: profile.role,
-          userName: profile.fullName || `${profile.firstName} ${profile.lastName}`.trim(),
-          userEmail: profile.email || ''
-        });
-      }
-    } catch (notificationError) {
-      // Don't fail profile creation if notification fails
-    }
-
     return profile;
   }
 
@@ -1114,7 +1099,7 @@ class SupabaseDatabaseService {
     }
   }
 
-  static async getTrips(driverId?: string, options?: { includeInactive?: boolean }) {
+  static async getTrips(driverId?: string, options?: { includeInactive?: boolean, minDate?: string }) {
     let query = supabase
       .from('trips')
       .select('*')
@@ -1122,6 +1107,10 @@ class SupabaseDatabaseService {
 
     if (driverId) {
       query = query.eq('driver_id', driverId);
+    }
+    
+    if (options?.minDate) {
+      query = query.gte('departure_date', options.minDate);
     }
 
     const { data: tripsRows, error } = await query;
@@ -1279,7 +1268,7 @@ class SupabaseDatabaseService {
       .filter((t) => t.availableSeats > 0);
   }
 
-  static async getTripsWithDetails(driverId?: string, options?: { includeInactive?: boolean }) {
+  static async getTripsWithDetails(driverId?: string, options?: { includeInactive?: boolean, minDate?: string }) {
     const trips = await this.getTrips(driverId, options);
 
     if (trips.length === 0) return [];
