@@ -264,7 +264,7 @@ const BookingModal = ({ trip, isOpen, onClose, onSuccess, initialTripType }: Boo
   const totalCost = seats * trip.pricePerSeat * (isRound ? 2 : 1);
 
   // Baridimob system RIP placeholder (or can be fetched from DB)
-  const systemRip = "00799999002135647891"; 
+  const systemRip = "00799999004064855725"; 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 pb-24 md:pb-4 animate-in fade-in duration-200">
