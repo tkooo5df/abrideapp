@@ -25,6 +25,7 @@ import { motion } from "framer-motion";
 import BlurText from "@/components/BlurText";
 import { useNavigate } from "react-router-dom";
 import BookingModal from "@/components/booking/BookingModal";
+import TripFullyBookedModal from "@/components/booking/TripFullyBookedModal";
 
 interface Trip {
   id: string;
@@ -64,6 +65,7 @@ const TripFeedCarousel = () => {
   
   // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isFullyBookedModalOpen, setIsFullyBookedModalOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   // Load trips from database
@@ -110,8 +112,8 @@ const TripFeedCarousel = () => {
       setLoading(true);
       const data = await BrowserDatabaseService.getTripsWithDetails();
       
-      // Filter for scheduled trips only
-      const scheduledTrips = (data || []).filter(trip => trip.status === 'scheduled');
+      // Filter for scheduled and fully_booked trips
+      const scheduledTrips = (data || []).filter(trip => trip.status === 'scheduled' || trip.status === 'fully_booked');
       
       // Sort by departure date and time (closest first)
       scheduledTrips.sort((a, b) => {
@@ -409,14 +411,15 @@ const TripFeedCarousel = () => {
                       )}
                       
                       <Button 
-                        className={`w-full h-9 text-sm transition-all duration-300 ${
+                        className={`w-full h-9 text-sm transition-all duration-300 hover:bg-primary/90 ${
                           isFullyBooked 
-                            ? 'bg-muted hover:bg-muted' 
-                            : 'hover:bg-primary/90'
+                            ? 'bg-muted/80' 
+                            : ''
                         }`}
-                        disabled={isFullyBooked}
                         onClick={() => {
-                          if (!isFullyBooked) {
+                          if (isFullyBooked) {
+                            setIsFullyBookedModalOpen(true);
+                          } else {
                             setSelectedTrip(trip);
                             setIsBookingModalOpen(true);
                           }
@@ -449,6 +452,12 @@ const TripFeedCarousel = () => {
           }}
         />
       )}
+
+      {/* Fully Booked Modal */}
+      <TripFullyBookedModal 
+        isOpen={isFullyBookedModalOpen}
+        onClose={() => setIsFullyBookedModalOpen(false)}
+      />
     </section>
   );
 };

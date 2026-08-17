@@ -142,6 +142,27 @@ const TripManagement = () => {
     }
   };
 
+  const handleMarkAsFullyBooked = async (tripId: string) => {
+    if (!window.confirm("هل أنت متأكد من جعل هذه الرحلة 'محجوزة بالكامل'؟ لن يتمكن أحد من الحجز فيها بعد الآن.")) return;
+
+    try {
+      await BrowserDatabaseService.updateTrip(tripId, { status: 'fully_booked', available_seats: 0 });
+      
+      toast({
+        title: "تم الحفظ",
+        description: "تم تحديد الرحلة كممتلئة بنجاح"
+      });
+      
+      loadTrips();
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء تغيير حالة الرحلة",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDeleteTrip = async (tripId: string) => {
     if (!window.confirm("هل أنت متأكد من حذف هذه الرحلة؟\n\nملاحظة: حذف 3 رحلات في آخر 24 ساعة سيؤدي إلى إيقاف حساب السائق تلقائياً.")) return;
     
@@ -370,7 +391,6 @@ const TripManagement = () => {
                           )}
                         </DialogContent>
                       </Dialog>
-                      
                       <Button 
                         size="sm" 
                         variant={trip.status === 'scheduled' ? "outline" : "default"}
@@ -389,6 +409,17 @@ const TripManagement = () => {
                           </>
                         )}
                       </Button>
+
+                      {trip.status === 'scheduled' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleMarkAsFullyBooked(trip.id)}
+                          className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                        >
+                          <span className="hidden sm:inline">ممتلئة</span>
+                        </Button>
+                      )}
                       
                       <Button 
                         size="sm" 

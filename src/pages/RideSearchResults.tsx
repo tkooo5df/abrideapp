@@ -20,6 +20,7 @@ import RatingStars from "@/components/RatingStars";
 import LoginPromptModal from "@/components/auth/LoginPromptModal";
 import ProfileCompletionModal from "@/components/booking/ProfileCompletionModal";
 import { validateProfileForBooking } from "@/utils/profileValidation";
+import TripFullyBookedModal from "@/components/booking/TripFullyBookedModal";
 
 // List of ksour (قصور) in Ghardaia - القصور الـ7
 const ksour = [
@@ -70,6 +71,7 @@ const RideSearchResults = () => {
   const [showProfileCompletionModal, setShowProfileCompletionModal] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [isFullyBookedModalOpen, setIsFullyBookedModalOpen] = useState(false);
 
   const pickup = searchParams.get("pickup");
   const destination = searchParams.get("destination");
@@ -359,7 +361,7 @@ const RideSearchResults = () => {
         // Filter out past trips and only show future trips
         const today = new Date().toISOString().split('T')[0];
         filteredTrips = filteredTrips.filter(trip => 
-          trip.departureDate >= today && trip.status === 'scheduled'
+          trip.departureDate >= today && (trip.status === 'scheduled' || trip.status === 'fully_booked')
         );
         
         // Filter by search date if provided: include ONLY trips on the exact date
@@ -1165,11 +1167,11 @@ const RideSearchResults = () => {
                       )}
 
                       {/* Book Button */}
-                      {trip.availableSeats === 0 ? (
+                      {trip.availableSeats === 0 || trip.status === 'fully_booked' ? (
                         <Button 
-                          className="w-full mt-4 transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg" 
-                          variant="secondary" 
-                          disabled
+                          className="w-full mt-4 transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg bg-muted-foreground/20 hover:bg-muted-foreground/30 text-foreground" 
+                          variant="secondary"
+                          onClick={() => setIsFullyBookedModalOpen(true)}
                         >
                           <Users className="h-4 w-4 mr-2" />
                           مكتمل - لا توجد مقاعد متاحة
@@ -1227,6 +1229,12 @@ const RideSearchResults = () => {
           setSelectedTripId(null);
         }}
         missingFields={missingProfileFields}
+      />
+
+      {/* Fully Booked Modal */}
+      <TripFullyBookedModal 
+        isOpen={isFullyBookedModalOpen}
+        onClose={() => setIsFullyBookedModalOpen(false)}
       />
 
       <Footer />
